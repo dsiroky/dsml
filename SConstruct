@@ -28,4 +28,4 @@ env.AppendUnique(
             ],
     )
 
-env.Program("run", Glob("*.cpp") + ["googletest/googletest/src/gtest-all.cc"])
+env.Program("test", Glob("*.cpp") + ["googletest/googletest/src/gtest-all.cc"])

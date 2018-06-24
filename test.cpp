@@ -1,0 +1,581 @@
+#include "gtest/gtest.h"
+
+#include "dsml.hpp"
+
+//==========================================================================
+
+TEST(MinimalUnsigned, ProvidesType)
+{
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::minimal_unsigned<0>::type,
+        uint8_t
+      >::value));
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::minimal_unsigned<255>::type,
+        uint8_t
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::minimal_unsigned<256>::type,
+        uint16_t
+      >::value));
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::minimal_unsigned<65535>::type,
+        uint16_t
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::minimal_unsigned<65536>::type,
+        uint32_t
+      >::value));
+}
+
+//==========================================================================
+
+TEST(UniqueTuple, RemovesDuplicitTypes)
+{
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<>>,
+        std::tuple<>
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<int>>,
+        std::tuple<int>
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<int, bool>>,
+        std::tuple<int, bool>
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<int, bool, double>>,
+        std::tuple<int, bool, double>
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<int, int>>,
+        std::tuple<int>
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<int, int, bool>>,
+        std::tuple<int, bool>
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<int, bool, int>>,
+        std::tuple<bool, int>
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<bool, int, int>>,
+        std::tuple<bool, int>
+      >::value));
+
+  EXPECT_TRUE((std::is_same<
+        dsml::detail::unique_types_tuple_t<std::tuple<
+                      bool, int, int, bool, double, int, bool, double, double
+                    >>,
+        std::tuple<int, bool, double>
+      >::value));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(TypeIndex, TypePresent_ValueIsIndex)
+{
+  {
+    const auto idx = dsml::detail::type_index<int,
+                                std::tuple<int>>::value;
+    EXPECT_EQ(0u, idx);
+  }
+  {
+    const auto idx = dsml::detail::type_index<int,
+                                std::tuple<int, bool>>::value;
+    EXPECT_EQ(0u, idx);
+  }
+  {
+    const auto idx = dsml::detail::type_index<int,
+                                std::tuple<int, bool, double>>::value;
+    EXPECT_EQ(0u, idx);
+  }
+  {
+    const auto idx = dsml::detail::type_index<int,
+                                std::tuple<bool, int>>::value;
+    EXPECT_EQ(1u, idx);
+  }
+  {
+    const auto idx = dsml::detail::type_index<int,
+                                std::tuple<bool, int, double>>::value;
+    EXPECT_EQ(1u, idx);
+  }
+  {
+    const auto idx = dsml::detail::type_index<int,
+                                std::tuple<bool, double, int>>::value;
+    EXPECT_EQ(2u, idx);
+  }
+}
+
+//==========================================================================
+
+void dummy_free_function_with_args(int, double*, const char * const, const bool&)
+{}
+
+TEST(CallableArgsTuple, FromFreeFunction)
+{
+  using args_t =
+    dsml::detail::callable_args_tuple_t<decltype(dummy_free_function_with_args)>;
+
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<0, args_t>,
+                  int
+                >::value));
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<1, args_t>,
+                  double*
+                >::value));
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<2, args_t>,
+                  const char*
+                >::value));
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<3, args_t>,
+                  bool
+                >::value));
+}
+
+TEST(CallableArgsTuple, FromLambda)
+{
+  struct S {};
+  auto f = [](int, double*, const char * const, const bool&, S&){};
+
+  using args_t = dsml::detail::callable_args_tuple_t<decltype(f)>;
+
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<0, args_t>,
+                  int
+                >::value));
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<1, args_t>,
+                  double*
+                >::value));
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<2, args_t>,
+                  const char*
+                >::value));
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<3, args_t>,
+                  bool
+                >::value));
+  EXPECT_TRUE((std::is_same<
+                  std::tuple_element_t<4, args_t>,
+                  S
+                >::value));
+}
+
+//==========================================================================
+
+TEST(TypeTraits, IsState)
+{
+  EXPECT_FALSE(dsml::is_state_v<int>);
+  EXPECT_TRUE(dsml::is_state_v<dsml::state<int>>);
+  EXPECT_TRUE(dsml::is_state_v<dsml::state<struct S>>);
+}
+
+//==========================================================================
+
+TEST(RowWithEvent, NoMatch_EmptyTuple)
+{
+  using namespace dsml::literals;
+  const auto rows = std::make_tuple(
+
+          dsml::initial_state = "A"_s
+          , "A"_s + "e1"_e = "B"_s
+          , "B"_s + "e2"_e = "C"_s
+
+    );
+
+  const auto transitions = dsml::detail::rows_with_event(rows, "e4"_e);
+
+  EXPECT_EQ(0u, std::tuple_size<decltype(transitions)>::value);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(RowWithEvent, SingleTransition)
+{
+  using namespace dsml::literals;
+  const auto rows = std::make_tuple(
+
+          dsml::initial_state = "A"_s
+          , "A"_s + "e1"_e = "B"_s
+          , "B"_s + "e2"_e = "C"_s
+
+    );
+
+  const auto transitions = dsml::detail::rows_with_event(rows, "e1"_e);
+
+  EXPECT_EQ(1u, std::tuple_size<decltype(transitions)>::value);
+  using item0_t = std::tuple_element_t<0, decltype(transitions)>;
+  EXPECT_TRUE((std::is_same<
+        std::remove_reference_t<item0_t>::src_state_t,
+        decltype("A"_s)
+      >::value));
+  EXPECT_TRUE((std::is_same<
+        std::remove_reference_t<item0_t>::dst_state_t,
+        decltype("B"_s)
+      >::value));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(RowWithEvent, MultipleTransitions)
+{
+  using namespace dsml::literals;
+  const auto rows = std::make_tuple(
+
+          dsml::initial_state = "A"_s
+          , "A"_s + "e1"_e = "B"_s
+          , "B"_s + "e2"_e = "C"_s
+          , "B"_s + "e1"_e = "D"_s
+          , "B"_s + "e3"_e = "A"_s
+
+    );
+
+  const auto transitions = dsml::detail::rows_with_event(rows, "e1"_e);
+
+  EXPECT_EQ(2u, std::tuple_size<decltype(transitions)>::value);
+
+  using item0_t = std::tuple_element_t<0, decltype(transitions)>;
+  EXPECT_TRUE((std::is_same<
+        std::remove_reference_t<item0_t>::src_state_t,
+        decltype("A"_s)
+      >::value));
+  EXPECT_TRUE((std::is_same<
+        std::remove_reference_t<item0_t>::dst_state_t,
+        decltype("B"_s)
+      >::value));
+
+  using item1_t = std::tuple_element_t<1, decltype(transitions)>;
+  EXPECT_TRUE((std::is_same<
+        std::remove_reference_t<item1_t>::src_state_t,
+        decltype("B"_s)
+      >::value));
+  EXPECT_TRUE((std::is_same<
+        std::remove_reference_t<item1_t>::dst_state_t,
+        decltype("D"_s)
+      >::value));
+}
+
+//==========================================================================
+
+TEST(Sm_Is, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+
+  ); } };
+  dsml::sm<MyMachine> sm{};
+
+  EXPECT_FALSE(sm.is<decltype(dsml::initial_state)>());
+  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_Is, OnlyInitialStateAndTransition_IsInTheInitialState)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+
+  ); } };
+  dsml::sm<MyMachine> sm{};
+
+  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+  EXPECT_FALSE(sm.is<decltype("A"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, SingleTransition)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+
+  ); } };
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+
+  EXPECT_FALSE(sm.is<decltype(dsml::initial_state)>());
+  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, SingleTransitionUnknownEvent_NoStateChange)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+
+  ); } };
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("eunk"_e);
+
+  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, MultipleTransitionsSameEvents)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+          ,"A"_s + "e1"_e = "B"_s
+          ,"B"_s + "e1"_e = "C"_s
+
+  ); } };
+
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+    sm.process_event("e1"_e);
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("C"_s)>());
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, MultipleTransitionsDifferentEvents)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+          ,"A"_s + "e2"_e = "B"_s
+          ,"B"_s + "e3"_e = "C"_s
+
+  ); } };
+
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+    sm.process_event("e2"_e);
+
+    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+    sm.process_event("e2"_e);
+    sm.process_event("e3"_e);
+
+    EXPECT_TRUE(sm.is<decltype("C"_s)>());
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, AnonymousEventAfterNormalEvent)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+          ,"A"_s = "B"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+
+  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, AnonymousEventBeforeNormalEvent)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+          ,"A"_s + "e1"_e = "B"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+
+  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, MultipleAnonymousEvents)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+          ,"A"_s = "B"_s
+          ,"B"_s = "C"_s
+          ,"C"_s = "D"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  EXPECT_TRUE(sm.is<decltype("D"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, MultipleAnonymousEventsAroundNormalEvent)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+          ,"A"_s = "B"_s
+          ,"B"_s = "C"_s
+          ,"C"_s = "D"_s
+          ,"D"_s + "e1"_e = "E"_s
+          ,"E"_s = "F"_s
+          ,"F"_s = "G"_s
+          ,"G"_s = "H"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+
+  EXPECT_TRUE(sm.is<decltype("H"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, DifferentEventsFromTheSameState)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+          , dsml::initial_state + "e2"_e = "B"_s
+
+  ); } };
+
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e2"_e);
+
+    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, TransitionLoop)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = dsml::initial_state
+          , dsml::initial_state + "e2"_e = "A"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+  sm.process_event("e2"_e);
+  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, TransitionAction)
+{
+  struct Data
+  {
+    bool called{false};
+  };
+
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e
+                    / [](Data& data){ data.called = true; }
+                    = "A"_s
+
+  ); } };
+
+  Data data{};
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  EXPECT_TRUE(data.called);
+}
+
+//==========================================================================
+
+int main(int argc, char *argv[])
+{
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
