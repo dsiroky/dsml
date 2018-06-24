@@ -683,6 +683,233 @@ TEST(Sm_ProcessEvent, SingleTransition)
   EXPECT_TRUE(sm.is<decltype("A"_s)>());
 }
 
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, SingleTransitionUnknownEvent_NoStateChange)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+
+  ); } };
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("eunk"_e);
+
+  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, MultipleTransitionsSameEvents)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+          ,"A"_s + "e1"_e = "B"_s
+          ,"B"_s + "e1"_e = "C"_s
+
+  ); } };
+
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+    sm.process_event("e1"_e);
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("C"_s)>());
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, MultipleTransitionsDifferentEvents)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+          ,"A"_s + "e2"_e = "B"_s
+          ,"B"_s + "e3"_e = "C"_s
+
+  ); } };
+
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+    sm.process_event("e2"_e);
+
+    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+    sm.process_event("e2"_e);
+    sm.process_event("e3"_e);
+
+    EXPECT_TRUE(sm.is<decltype("C"_s)>());
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, AnonymousEventAfterNormalEvent)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+          ,"A"_s = "B"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+
+  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, AnonymousEventBeforeNormalEvent)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+          ,"A"_s + "e1"_e = "B"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+
+  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, MultipleAnonymousEvents)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+          ,"A"_s = "B"_s
+          ,"B"_s = "C"_s
+          ,"C"_s = "D"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  EXPECT_TRUE(sm.is<decltype("D"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, MultipleAnonymousEventsAroundNormalEvent)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+          ,"A"_s = "B"_s
+          ,"B"_s = "C"_s
+          ,"C"_s = "D"_s
+          ,"D"_s + "e1"_e = "E"_s
+          ,"E"_s = "F"_s
+          ,"F"_s = "G"_s
+          ,"G"_s = "H"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+
+  EXPECT_TRUE(sm.is<decltype("H"_s)>());
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, DifferentEventsFromTheSameState)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = "A"_s
+          , dsml::initial_state + "e2"_e = "B"_s
+
+  ); } };
+
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e1"_e);
+
+    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  }
+  {
+    dsml::sm<MyMachine> sm{};
+
+    sm.process_event("e2"_e);
+
+    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, TransitionLoop)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = dsml::initial_state
+          , dsml::initial_state + "e2"_e = "A"_s
+
+  ); } };
+
+  dsml::sm<MyMachine> sm{};
+
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+  sm.process_event("e2"_e);
+  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+}
+
 //==========================================================================
 
 int main(int argc, char *argv[])
