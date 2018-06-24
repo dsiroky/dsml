@@ -145,14 +145,14 @@ constexpr size_t state_number_v = detail::type_index<S, States>::value;
 //--------------------------------------------------------------------------
 
 template<typename Event, typename Rows, size_t... Is>
-struct rows_with_events_indices_impl;
+struct rows_with_event_indices_impl;
 template<typename Event, typename Rows>
-struct rows_with_events_indices_impl<Event, Rows>
+struct rows_with_event_indices_impl<Event, Rows>
 {
   using indices_t = std::index_sequence<>;
 };
 template<typename Event, typename Rows, size_t I>
-struct rows_with_events_indices_impl<Event, Rows, I>
+struct rows_with_event_indices_impl<Event, Rows, I>
 {
   using indices_t = std::conditional_t<std::is_same<typename std::tuple_element_t<I, Rows>::event_bundle_t::event_t, Event>::value,
         std::index_sequence<I>,
@@ -160,18 +160,18 @@ struct rows_with_events_indices_impl<Event, Rows, I>
       >;
 };
 template<typename Event, typename Rows, size_t I, size_t... Is>
-struct rows_with_events_indices_impl<Event, Rows, I, Is...>
+struct rows_with_event_indices_impl<Event, Rows, I, Is...>
 {
   using indices_t = std::conditional_t<std::is_same<typename std::tuple_element_t<I, Rows>::event_bundle_t::event_t, Event>::value,
-        decltype(concat_index_seq(std::index_sequence<I>{}, typename rows_with_events_indices_impl<Event, Rows, Is...>::indices_t{})),
-        typename rows_with_events_indices_impl<Event, Rows, Is...>::indices_t
+        decltype(concat_index_seq(std::index_sequence<I>{}, typename rows_with_event_indices_impl<Event, Rows, Is...>::indices_t{})),
+        typename rows_with_event_indices_impl<Event, Rows, Is...>::indices_t
       >;
 };
 
 template<typename Event, typename Rows, size_t... Is>
 auto rows_with_event_indices(Event, Rows, std::index_sequence<Is...>)
 {
-  return typename rows_with_events_indices_impl<Event, Rows, Is...>::indices_t{};
+  return typename rows_with_event_indices_impl<Event, Rows, Is...>::indices_t{};
 }
 
 /// @return tuple of references to rows where the event is present
@@ -183,8 +183,43 @@ auto rows_with_event(const Rows& rows, const Event& evt)
   return tuple_ref_selection(rows, indices_t{});
 }
 
-} // namespace
+//==========================================================================
 
+template<typename AllStates, typename... Rows>
+struct process_single_event_impl;
+template<typename AllStates>
+struct process_single_event_impl<AllStates, std::tuple<>>
+{
+  bool operator()(const size_t, size_t&) const
+  {
+    return false;
+  }
+};
+template<typename AllStates, typename Row, typename... Rows>
+struct process_single_event_impl<AllStates, std::tuple<Row, Rows...>>
+{
+  bool operator()(const size_t current_state, size_t& new_state) const
+  {
+    using row_t = std::remove_reference_t<std::remove_cv_t<Row>>;
+    bool processed = false;
+    if (type_index<typename row_t::src_state_t, AllStates>::value == current_state)
+    {
+      new_state = type_index<typename row_t::dst_state_t, AllStates>::value;
+      processed = true;
+    }
+    return processed or process_single_event_impl<AllStates, std::tuple<Rows...>>{}(current_state, new_state);
+  }
+};
+
+template<typename AllStates, typename FilteredRows>
+bool process_single_event(const AllStates&, const FilteredRows&,
+                          const size_t current_state, size_t& new_state)
+{
+  return process_single_event_impl<AllStates, FilteredRows>{}(current_state, new_state);
+}
+
+//==========================================================================
+} // namespace
 //==========================================================================
 
 template<typename T>
@@ -350,7 +385,7 @@ public:
   {
     constexpr auto number = detail::type_index<
                                       std::remove_cv_t<State>,
-                                      typename table_t::states_t
+                                      typename transition_table_t::states_t
                                     >::value;
     return m_state_number == number;
   }
@@ -365,15 +400,19 @@ public:
   //--------------------------------
 
 private:
-  using table_t = decltype(T{}());
+  using transition_table_t = decltype(T{}());
 
   //--------------------------------
 
-  /// @return true if state changes
+  /// @return true if transition was executed
   template<typename Event>
-  bool process_single_event(const event<Event>& )
+  bool process_single_event(const event<Event>& evt)
   {
-    return false;
+    const auto rows = detail::rows_with_event(m_table.m_rows, evt);
+    const auto processed = detail::process_single_event(
+                              typename transition_table_t::states_t{}, rows,
+                              m_state_number, m_state_number);
+    return processed;
   }
 
   void process_anonymous_events()
@@ -384,13 +423,13 @@ private:
 
   //--------------------------------
 
-  const table_t m_table = T{}();
+  const transition_table_t m_table = T{}();
 
   /// actual state machine state
   // TODO smallest data type
   size_t m_state_number{detail::type_index<
                                     state<detail::initial>,
-                                    typename table_t::states_t
+                                    typename transition_table_t::states_t
                                   >::value};
 };
 
