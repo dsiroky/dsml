@@ -17,10 +17,7 @@ struct string<char, Chrs...> {
   }
 };
 
-const auto always_true_guard = [](){ return true; };
-const auto no_action = [](){};
-
-struct anonymous {};
+//--------------------------------------------------------------------------
 
 // missing in gcc 5 STL
 template<class...> struct disjunction : std::false_type { };
@@ -29,10 +26,14 @@ template<class B1, class... Bn>
 struct disjunction<B1, Bn...>
     : std::conditional_t<bool(B1::value), B1, disjunction<Bn...>>  { };
 
+//--------------------------------------------------------------------------
+
 template <typename T, typename Tuple>
 struct has_type;
 template <typename T, typename... Us>
 struct has_type<T, std::tuple<Us...>> : disjunction<std::is_same<T, Us>...> {};
+
+//--------------------------------------------------------------------------
 
 template<typename T>
 struct remove_first_type { };
@@ -77,10 +78,46 @@ struct unique_types_tuple<std::tuple<T0, T...>>
                 >;
 };
 
-template<typename T>
-struct src_state { using type = typename T::src_state_t; };
-template<typename T>
-struct dst_state { using type = typename T::dst_state_t; };
+//--------------------------------------------------------------------------
+
+template<size_t I, typename... Ts>
+struct type_index_impl;
+template<size_t I, typename T>
+struct type_index_impl<I, T>
+{
+};
+template<size_t I, typename T, typename T0, typename... Ts>
+struct type_index_impl<I, T, T0, Ts...>
+{
+  static constexpr auto value =
+    std::conditional_t<std::is_same<T, T0>::value,
+                      std::integral_constant<size_t, I>,
+                      type_index_impl<I + 1, T, Ts...>>::value;
+};
+
+template<typename... Ts>
+struct type_index;
+template<typename T, typename... Ts>
+struct type_index<T, std::tuple<Ts...>>
+{
+  static_assert(has_type<T, std::tuple<Ts...>>::value,
+                "type not present");
+  static constexpr auto value = type_index_impl<0, T, Ts...>::value;
+};
+
+//--------------------------------------------------------------------------
+
+const auto always_true_guard = [](){ return true; };
+const auto no_action = [](){};
+
+struct anonymous {};
+
+/// Get state type by number from states tuple.
+template<typename States, size_t I>
+using state_by_number_t = typename std::tuple_element<I, States>::type;
+/// Get state number by type from states tuple.
+template<typename States, typename S>
+constexpr size_t state_number_v = detail::type_index<S, States>::value;
 
 } // namespace
 
@@ -182,10 +219,19 @@ struct state_transition
 template<typename... Rows>
 struct transition_table
 {
+  /// just helpers because Rows::src_state_t... is a bad syntax
+  template<typename T>
+  struct src_state { using type = typename T::src_state_t; };
+  template<typename T>
+  struct dst_state { using type = typename T::dst_state_t; };
+
   using states_t = detail::unique_types_tuple_t<std::tuple<
-          typename detail::src_state<Rows>::type...,
-          typename detail::dst_state<Rows>::type...
+          typename src_state<Rows>::type...,
+          typename dst_state<Rows>::type...
         >>;
+
+  static_assert(std::tuple_size<states_t>::value > 0,
+                "table must have at least 1 state");
 
   transition_table(Rows... rows) noexcept : m_rows{rows...} {}
 
@@ -262,6 +308,42 @@ TEST(UniqueTuple, RemovesDuplicitTypes)
       >::value));
 }
 
+//--------------------------------------------------------------------------
+
+TEST(TypeIndex, TypePresent_ValueIsIndex)
+{
+  {
+    const auto idx = detail::type_index<int,
+                                std::tuple<int>>::value;
+    EXPECT_EQ(0u, idx);
+  }
+  {
+    const auto idx = detail::type_index<int,
+                                std::tuple<int, bool>>::value;
+    EXPECT_EQ(0u, idx);
+  }
+  {
+    const auto idx = detail::type_index<int,
+                                std::tuple<int, bool, double>>::value;
+    EXPECT_EQ(0u, idx);
+  }
+  {
+    const auto idx = detail::type_index<int,
+                                std::tuple<bool, int>>::value;
+    EXPECT_EQ(1u, idx);
+  }
+  {
+    const auto idx = detail::type_index<int,
+                                std::tuple<bool, int, double>>::value;
+    EXPECT_EQ(1u, idx);
+  }
+  {
+    const auto idx = detail::type_index<int,
+                                std::tuple<bool, double, int>>::value;
+    EXPECT_EQ(2u, idx);
+  }
+}
+
 //==========================================================================
 
 int main(int argc, char *argv[])
@@ -277,7 +359,10 @@ int main(int argc, char *argv[])
         , "C"_s = "D"_s
       );
 
-  std::cout << "states count:" << count_states(table) << '\n';
+  using u = decltype("A"_s);
+  using t = decltype(table)::states_t;
+  std::cout << std::tuple_size<t>::value << '\n';
+  //std::cout << detail::type_index<decltype("B"_s), t>::value << '\n';
 
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
