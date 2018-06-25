@@ -760,6 +760,37 @@ TEST(Sm_ProcessEvent, TransitionActionDifferentRow)
   EXPECT_TRUE(data.called);
 }
 
+//--------------------------------------------------------------------------
+
+TEST(Sm_ProcessEvent, TransitionGuard)
+{
+  struct Data
+  {
+    enum {F1, F2, F3} flag{F2};
+  };
+
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e
+                    [ ([](Data& d){ return d.flag == Data::F1; }) ]
+                    = "A"_s
+          ,dsml::initial_state + "e1"_e
+                    [ ([](Data& d){ return d.flag == Data::F2; }) ]
+                    = "B"_s
+          ,dsml::initial_state + "e1"_e
+                    [ ([](Data& d){ return d.flag == Data::F3; }) ]
+                    = "C"_s
+
+  ); } };
+
+  Data data{};
+  dsml::Sm<MyMachine, Data> sm{data};
+
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+}
+
 //==========================================================================
 
 auto g = [](int){return true;};

@@ -1,5 +1,3 @@
-// TODO action
-// TODO guard
 // TODO composite
 // TODO warnings
 // TODO comments
@@ -208,17 +206,17 @@ using CallableArgsTuple_t = typename CallableArgsTupleImpl<_F>::type;
 //--------------------------------------------------------------------------
 
 template<typename _F, typename _Deps, size_t... _Is>
-void _call(_F func, _Deps& deps, std::index_sequence<_Is...>)
+auto _call(_F func, _Deps& deps, std::index_sequence<_Is...>)
 {
-  func(std::get<_Is>(deps)...);
+  return func(std::get<_Is>(deps)...);
 }
 
 template<typename _F, typename _Deps>
-void call(_F func, _Deps& deps)
+auto call(_F func, _Deps& deps)
 {
   using args_t = CallableArgsTuple_t<_F>;
   using args_indices_t = std::make_index_sequence<std::tuple_size<args_t>::value>;
-  _call(func, deps, args_indices_t{});
+  return _call(func, deps, args_indices_t{});
 }
 
 //--------------------------------------------------------------------------
@@ -335,10 +333,13 @@ struct ProcessSingleEventImpl<_AllStates, _Deps, std::tuple<_Row, _Rows...>>
                   _Deps& deps) const
   {
     using row_t = std::remove_const_t<std::remove_reference_t<_Row>>;
+    const auto& row = std::get<_Row>(rows);
+    const auto& guard = row.m_event_bundle.m_guard;
     bool processed{false};
-    if (state_number_v<typename row_t::src_state_t, _AllStates> == current_state)
+    if ((state_number_v<typename row_t::src_state_t, _AllStates> == current_state)
+        and
+        call(guard, deps))
     {
-      const auto& row = std::get<_Row>(rows);
       const auto& action = row.m_event_bundle.m_action;
       call(action, deps);
       new_state = state_number_v<typename row_t::dst_state_t, _AllStates>;
