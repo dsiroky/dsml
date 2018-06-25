@@ -199,7 +199,11 @@ struct rows_with_event_indices_impl<Event, Rows>
 template<typename Event, typename Rows, size_t I>
 struct rows_with_event_indices_impl<Event, Rows, I>
 {
-  using indices_t = std::conditional_t<std::is_same<typename std::tuple_element_t<I, Rows>::event_bundle_t::event_t, Event>::value,
+  using indices_t = std::conditional_t<
+        std::is_same<
+              typename std::tuple_element_t<I, Rows>::event_bundle_t::event_t,
+              Event
+            >::value,
         std::index_sequence<I>,
         std::index_sequence<>
       >;
@@ -207,8 +211,15 @@ struct rows_with_event_indices_impl<Event, Rows, I>
 template<typename Event, typename Rows, size_t I, size_t... Is>
 struct rows_with_event_indices_impl<Event, Rows, I, Is...>
 {
-  using indices_t = std::conditional_t<std::is_same<typename std::tuple_element_t<I, Rows>::event_bundle_t::event_t, Event>::value,
-        decltype(concat_index_seq(std::index_sequence<I>{}, typename rows_with_event_indices_impl<Event, Rows, Is...>::indices_t{})),
+  using indices_t = std::conditional_t<
+        std::is_same<
+              typename std::tuple_element_t<I, Rows>::event_bundle_t::event_t,
+              Event
+            >::value,
+        decltype(concat_index_seq(std::index_sequence<I>{},
+                                  typename rows_with_event_indices_impl<
+                                              Event, Rows, Is...
+                                            >::indices_t{})),
         typename rows_with_event_indices_impl<Event, Rows, Is...>::indices_t
       >;
 };
@@ -252,7 +263,9 @@ struct process_single_event_impl<AllStates, std::tuple<Row, Rows...>>
       new_state = type_index<typename row_t::dst_state_t, AllStates>::value;
       processed = true;
     }
-    return processed or process_single_event_impl<AllStates, std::tuple<Rows...>>{}(current_state, new_state);
+    return processed or
+          process_single_event_impl<AllStates, std::tuple<Rows...>>{}(
+                                                      current_state, new_state);
   }
 };
 
@@ -260,7 +273,8 @@ template<typename AllStates, typename FilteredRows>
 bool process_single_event(const AllStates&, const FilteredRows&,
                           const size_t current_state, size_t& new_state)
 {
-  return process_single_event_impl<AllStates, FilteredRows>{}(current_state, new_state);
+  return process_single_event_impl<AllStates, FilteredRows>{}(current_state,
+                                                              new_state);
 }
 
 //==========================================================================
