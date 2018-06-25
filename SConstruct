@@ -17,6 +17,7 @@ env.AppendUnique(
             "-Wextra",
             "-Wconversion",
             "-Wmissing-braces",
+            "-Wshadow",
             ],
         CXXFLAGS=[
             "-std=c++17",
