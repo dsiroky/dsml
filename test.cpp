@@ -7,25 +7,25 @@
 TEST(MinimalUnsigned, ProvidesType)
 {
   EXPECT_TRUE((std::is_same<
-        dsml::detail::minimal_unsigned<0>::type,
+        dsml::detail::MinimalUnsigned<0>::type,
         uint8_t
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::minimal_unsigned<255>::type,
+        dsml::detail::MinimalUnsigned<255>::type,
         uint8_t
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::minimal_unsigned<256>::type,
+        dsml::detail::MinimalUnsigned<256>::type,
         uint16_t
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::minimal_unsigned<65535>::type,
+        dsml::detail::MinimalUnsigned<65535>::type,
         uint16_t
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::minimal_unsigned<65536>::type,
+        dsml::detail::MinimalUnsigned<65536>::type,
         uint32_t
       >::value));
 }
@@ -35,47 +35,47 @@ TEST(MinimalUnsigned, ProvidesType)
 TEST(UniqueTuple, RemovesDuplicitTypes)
 {
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<>>,
+        dsml::detail::UniqueTypesTuple_t<std::tuple<>>,
         std::tuple<>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<int>>,
+        dsml::detail::UniqueTypesTuple_t<std::tuple<int>>,
         std::tuple<int>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<int, bool>>,
+        dsml::detail::UniqueTypesTuple_t<std::tuple<int, bool>>,
         std::tuple<int, bool>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<int, bool, double>>,
+        dsml::detail::UniqueTypesTuple_t<std::tuple<int, bool, double>>,
         std::tuple<int, bool, double>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<int, int>>,
+        dsml::detail::UniqueTypesTuple_t<std::tuple<int, int>>,
         std::tuple<int>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<int, int, bool>>,
+        dsml::detail::UniqueTypesTuple_t<std::tuple<int, int, bool>>,
         std::tuple<int, bool>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<int, bool, int>>,
+        dsml::detail::UniqueTypesTuple_t<std::tuple<int, bool, int>>,
         std::tuple<bool, int>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<bool, int, int>>,
+        dsml::detail::UniqueTypesTuple_t<std::tuple<bool, int, int>>,
         std::tuple<bool, int>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::unique_types_tuple_t<std::tuple<
+        dsml::detail::UniqueTypesTuple_t<std::tuple<
                       bool, int, int, bool, double, int, bool, double, double
                     >>,
         std::tuple<int, bool, double>
@@ -87,32 +87,32 @@ TEST(UniqueTuple, RemovesDuplicitTypes)
 TEST(TypeIndex, TypePresent_ValueIsIndex)
 {
   {
-    const auto idx = dsml::detail::type_index<int,
+    const auto idx = dsml::detail::TypeIndex<int,
                                 std::tuple<int>>::value;
     EXPECT_EQ(0u, idx);
   }
   {
-    const auto idx = dsml::detail::type_index<int,
+    const auto idx = dsml::detail::TypeIndex<int,
                                 std::tuple<int, bool>>::value;
     EXPECT_EQ(0u, idx);
   }
   {
-    const auto idx = dsml::detail::type_index<int,
+    const auto idx = dsml::detail::TypeIndex<int,
                                 std::tuple<int, bool, double>>::value;
     EXPECT_EQ(0u, idx);
   }
   {
-    const auto idx = dsml::detail::type_index<int,
+    const auto idx = dsml::detail::TypeIndex<int,
                                 std::tuple<bool, int>>::value;
     EXPECT_EQ(1u, idx);
   }
   {
-    const auto idx = dsml::detail::type_index<int,
+    const auto idx = dsml::detail::TypeIndex<int,
                                 std::tuple<bool, int, double>>::value;
     EXPECT_EQ(1u, idx);
   }
   {
-    const auto idx = dsml::detail::type_index<int,
+    const auto idx = dsml::detail::TypeIndex<int,
                                 std::tuple<bool, double, int>>::value;
     EXPECT_EQ(2u, idx);
   }
@@ -126,7 +126,7 @@ void dummy_free_function_with_args(int, double*, const char * const, const bool&
 TEST(CallableArgsTuple, FromFreeFunction)
 {
   using args_t =
-    dsml::detail::callable_args_tuple_t<decltype(dummy_free_function_with_args)>;
+    dsml::detail::CallableArgsTuple_t<decltype(dummy_free_function_with_args)>;
 
   EXPECT_TRUE((std::is_same<
                   std::tuple_element_t<0, args_t>,
@@ -151,7 +151,7 @@ TEST(CallableArgsTuple, FromLambda)
   struct S {};
   auto f = [](int, double*, const char * const, const bool&, S&){};
 
-  using args_t = dsml::detail::callable_args_tuple_t<decltype(f)>;
+  using args_t = dsml::detail::CallableArgsTuple_t<decltype(f)>;
 
   EXPECT_TRUE((std::is_same<
                   std::tuple_element_t<0, args_t>,
@@ -279,7 +279,7 @@ TEST(Sm_Is, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
           dsml::initial_state = "A"_s
 
   ); } };
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   EXPECT_FALSE(sm.is<decltype(dsml::initial_state)>());
   EXPECT_TRUE(sm.is<decltype("A"_s)>());
@@ -295,7 +295,7 @@ TEST(Sm_Is, OnlyInitialStateAndTransition_IsInTheInitialState)
           dsml::initial_state + "e1"_e = "A"_s
 
   ); } };
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
   EXPECT_FALSE(sm.is<decltype("A"_s)>());
@@ -311,7 +311,7 @@ TEST(Sm_ProcessEvent, SingleTransition)
           dsml::initial_state + "e1"_e = "A"_s
 
   ); } };
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   sm.process_event("e1"_e);
 
@@ -329,7 +329,7 @@ TEST(Sm_ProcessEvent, SingleTransitionUnknownEvent_NoStateChange)
           dsml::initial_state + "e1"_e = "A"_s
 
   ); } };
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   sm.process_event("eunk"_e);
 
@@ -350,14 +350,14 @@ TEST(Sm_ProcessEvent, MultipleTransitionsSameEvents)
   ); } };
 
   {
-    dsml::sm<MyMachine> sm{};
+    dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e1"_e);
 
     EXPECT_TRUE(sm.is<decltype("A"_s)>());
   }
   {
-    dsml::sm<MyMachine> sm{};
+    dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e1"_e);
     sm.process_event("e1"_e);
@@ -365,7 +365,7 @@ TEST(Sm_ProcessEvent, MultipleTransitionsSameEvents)
     EXPECT_TRUE(sm.is<decltype("B"_s)>());
   }
   {
-    dsml::sm<MyMachine> sm{};
+    dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e1"_e);
     sm.process_event("e1"_e);
@@ -389,14 +389,14 @@ TEST(Sm_ProcessEvent, MultipleTransitionsDifferentEvents)
   ); } };
 
   {
-    dsml::sm<MyMachine> sm{};
+    dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e1"_e);
 
     EXPECT_TRUE(sm.is<decltype("A"_s)>());
   }
   {
-    dsml::sm<MyMachine> sm{};
+    dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e1"_e);
     sm.process_event("e2"_e);
@@ -404,7 +404,7 @@ TEST(Sm_ProcessEvent, MultipleTransitionsDifferentEvents)
     EXPECT_TRUE(sm.is<decltype("B"_s)>());
   }
   {
-    dsml::sm<MyMachine> sm{};
+    dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e1"_e);
     sm.process_event("e2"_e);
@@ -426,7 +426,7 @@ TEST(Sm_ProcessEvent, AnonymousEventAfterNormalEvent)
 
   ); } };
 
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   sm.process_event("e1"_e);
 
@@ -445,7 +445,7 @@ TEST(Sm_ProcessEvent, AnonymousEventBeforeNormalEvent)
 
   ); } };
 
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   sm.process_event("e1"_e);
 
@@ -466,7 +466,7 @@ TEST(Sm_ProcessEvent, MultipleAnonymousEvents)
 
   ); } };
 
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   EXPECT_TRUE(sm.is<decltype("D"_s)>());
 }
@@ -489,7 +489,7 @@ TEST(Sm_ProcessEvent, MultipleAnonymousEventsAroundNormalEvent)
 
   ); } };
 
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   sm.process_event("e1"_e);
 
@@ -509,14 +509,14 @@ TEST(Sm_ProcessEvent, DifferentEventsFromTheSameState)
   ); } };
 
   {
-    dsml::sm<MyMachine> sm{};
+    dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e1"_e);
 
     EXPECT_TRUE(sm.is<decltype("A"_s)>());
   }
   {
-    dsml::sm<MyMachine> sm{};
+    dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e2"_e);
 
@@ -536,7 +536,7 @@ TEST(Sm_ProcessEvent, TransitionLoop)
 
   ); } };
 
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   sm.process_event("e1"_e);
   EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
@@ -565,7 +565,7 @@ TEST(Sm_ProcessEvent, TransitionAction)
   ); } };
 
   Data data{};
-  dsml::sm<MyMachine> sm{};
+  dsml::Sm<MyMachine> sm{};
 
   sm.process_event("e1"_e);
   EXPECT_TRUE(sm.is<decltype("A"_s)>());
