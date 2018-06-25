@@ -180,8 +180,8 @@ TEST(CallableArgsTuple, FromLambda)
 TEST(TypeTraits, IsState)
 {
   EXPECT_FALSE(dsml::is_state_v<int>);
-  EXPECT_TRUE(dsml::is_state_v<dsml::state<int>>);
-  EXPECT_TRUE(dsml::is_state_v<dsml::state<struct S>>);
+  EXPECT_TRUE(dsml::is_state_v<dsml::State<int>>);
+  EXPECT_TRUE(dsml::is_state_v<dsml::State<struct S>>);
 }
 
 //==========================================================================
