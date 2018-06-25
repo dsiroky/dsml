@@ -66,6 +66,11 @@ auto concat_index_seq(std::index_sequence<_Is1...>, std::index_sequence<_Is2...>
 
 //--------------------------------------------------------------------------
 
+template<typename _T>
+struct IsTuple : std::false_type {};
+template<typename... _T>
+struct IsTuple<std::tuple<_T...>> : std::true_type {};
+
 template <typename _T, typename _Tuple>
 struct HasType;
 template <typename _T, typename... _Us>
@@ -94,6 +99,34 @@ template<typename... _T>
 using PrependType_t = typename PrependType<_T...>::type;
 
 template<typename... _T>
+struct ConcatTwoTuplesImpl;
+template<typename... _Ts1, typename... _Ts2>
+struct ConcatTwoTuplesImpl<std::tuple<_Ts1...>, std::tuple<_Ts2...>>
+{
+  using type = std::tuple<_Ts1..., _Ts2...>;
+};
+template<typename... _T>
+struct ConcatTuplesImpl;
+template<typename _Tup0>
+struct ConcatTuplesImpl<_Tup0>
+{
+  static_assert(IsTuple<_Tup0>::value, "must be tuple");
+  using type = _Tup0;
+};
+template<typename _Tup0, typename... _Tups>
+struct ConcatTuplesImpl<_Tup0, _Tups...>
+{
+  static_assert(IsTuple<_Tup0>::value, "must be tuple");
+  using type =
+        typename ConcatTwoTuplesImpl<
+                    _Tup0,
+                    typename ConcatTuplesImpl<_Tups...>::type
+                >::type;
+};
+template<typename... _Tuples>
+using ConcatTuples_t = typename ConcatTuplesImpl<_Tuples...>::type;
+
+template<typename... _T>
 struct UniqueTypesTuple;
 template<typename... _T>
 using UniqueTypesTuple_t = typename UniqueTypesTuple<_T...>::type;
@@ -116,6 +149,7 @@ struct UniqueTypesTuple<std::tuple<_T0, _T...>>
                 >;
 };
 
+/// @return tuple of references to a subset of the original tuple.
 template<typename _Tuple, size_t... _Is>
 auto tuple_ref_selection(const _Tuple& tuple, std::index_sequence<_Is...>)
 {
@@ -151,26 +185,119 @@ struct TypeIndex<_T, std::tuple<_Ts...>>
 
 //--------------------------------------------------------------------------
 
+template<typename... _Args>
+using RawArgs_t = std::tuple<_Args...>;
+
 template<typename _F>
 struct CallableArgsTupleImpl;
-template<typename... _Args>
-struct CallableArgsTupleImpl<void(_Args...)>
-{
-  using type = std::tuple<std::remove_cv_t<std::remove_reference_t<_Args>>...>;
-};
-template<typename _T, typename... _Args>
-struct CallableArgsTupleImpl<void(_T::*)(_Args...) const>
-{
-  using type = std::tuple<std::remove_cv_t<std::remove_reference_t<_Args>>...>;
-};
+template<typename _Ret, typename... _Args>
+struct CallableArgsTupleImpl<_Ret(_Args...)>
+{ using type = RawArgs_t<_Args...>; };
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableArgsTupleImpl<_Ret(_T::*)(_Args...) const>
+{ using type = RawArgs_t<_Args...>; };
 template<typename _T>
-struct CallableArgsTupleImpl
-  : CallableArgsTupleImpl<decltype(&_T::operator())>
+struct CallableArgsTupleImpl : CallableArgsTupleImpl<decltype(&_T::operator())>
 { };
 
-/// Get arguments type list without CV qualifiers and references.
+/// Get callable arguments type list without CV qualifiers and references.
 template<typename _F>
 using CallableArgsTuple_t = typename CallableArgsTupleImpl<_F>::type;
+
+//--------------------------------------------------------------------------
+
+// user     | dep args  | storage
+// T        | T&        | T&
+// T        | const T&  | const T&
+// T        | T&&       | T
+// T&       | T&        | T&
+// T&       | const T&  | xxx
+// T&       | T&&       | T
+// const T& | T&        | T&
+// const T& | const T&  | const T&
+// const T& | T&&       | T
+
+template<typename, typename>
+struct StorageTypeHelper;
+
+template<typename _U, typename _A>
+struct StorageTypeHelper<_U, _A&> { using type = _A&; };
+template<typename _U, typename _A>
+struct StorageTypeHelper<_U, const _A&> { using type = const _A&; };
+template<typename _U, typename _A>
+struct StorageTypeHelper<_U, _A&&> { using type = _A; };
+
+template<typename _U, typename _A>
+struct StorageTypeHelper<_U&, _A&> { using type = _A&; };
+template<typename _U, typename _A>
+struct StorageTypeHelper<_U&, const _A&> { using type = void; };
+template<typename _U, typename _A>
+struct StorageTypeHelper<_U&, _A&&> { using type = _A; };
+
+template<typename _U, typename _A>
+struct StorageTypeHelper<const _U&, _A&> { using type = _A&; };
+template<typename _U, typename _A>
+struct StorageTypeHelper<const _U&, const _A&> { using type = const _A&; };
+template<typename _U, typename _A>
+struct StorageTypeHelper<const _U&, _A&&> { using type = _A; };
+
+template<typename _U, typename _A>
+struct StorageType
+{
+  using type = std::conditional_t<true,
+                typename StorageTypeHelper<_U, _A>::type,
+                void>;
+};
+
+//--------------------------------------------------------------------------
+
+template<typename...>
+struct FindCompatible;
+template<typename _T>
+struct FindCompatible<_T>
+{
+  using type = void;
+};
+template<typename _T, typename _A0, typename... _As>
+struct FindCompatible<_T, _A0, _As...>
+{
+  using type = std::conditional_t<not std::is_same<
+                                        typename StorageType<_T, _A0>::type,
+                                        void
+                                      >::value,
+                  _A0,
+                  typename FindCompatible<_T, _As...>::type
+                >;
+};
+
+template<typename _T, typename... _As>
+using FindCompatible_t = typename FindCompatible<_T, _As...>::type;
+
+//--------------------------------------------------------------------------
+
+template<typename>
+struct MakeStorageImpl;
+template<typename... _Us>
+struct MakeStorageImpl<std::tuple<_Us...>>
+{
+  template<typename... _Args>
+  static auto match(_Args&&... args)
+  {
+    auto args_tuple = std::forward_as_tuple(args...);
+    // silence "unused" warnings if args is empty
+    (void) args_tuple;
+    using storage_t = std::tuple<typename StorageType<_Us, FindCompatible_t<_Us, _Args...>>::type...>;
+    return storage_t{std::get<typename StorageType<_Us, FindCompatible_t<_Us, _Args...>>::type>(args_tuple)...};
+  }
+};
+
+/// Make a storage tuple initialized from random arguments. All required types
+/// in the tuple must have a match in those arguments.
+template<typename _UserTup, typename... _Args>
+auto make_storage(_Args&&... args)
+{
+  return MakeStorageImpl<_UserTup>::match(std::forward<_Args>(args)...);
+}
 
 //--------------------------------------------------------------------------
 
@@ -185,6 +312,32 @@ struct initial {};
 /// Get state number by type from states tuple.
 template<typename _S, typename _States>
 constexpr size_t state_number_v = detail::TypeIndex<_S, _States>::value;
+
+//--------------------------------------------------------------------------
+
+template<typename... _Rows>
+struct GatherRequiredDepTypesImpl;
+template<>
+struct GatherRequiredDepTypesImpl<std::tuple<>>
+{
+  using type = std::tuple<>;
+};
+template<typename _Row0, typename... _Rows>
+struct GatherRequiredDepTypesImpl<std::tuple<_Row0, _Rows...>>
+{
+//private:
+  using action_types_t = CallableArgsTuple_t<typename _Row0::event_bundle_t::action_t>;
+  using guard_types_t = CallableArgsTuple_t<typename _Row0::event_bundle_t::guard_t>;
+public:
+  using type = ConcatTuples_t<action_types_t, guard_types_t,
+                            typename GatherRequiredDepTypesImpl<std::tuple<_Rows...>>::type>;
+};
+
+/// Gather required parameter types (dependencies) from actions and guards
+/// signatures.
+template<typename _Rows>
+using GatherRequiredDepTypes_t = UniqueTypesTuple_t<
+                              typename GatherRequiredDepTypesImpl<_Rows>::type>;
 
 //--------------------------------------------------------------------------
 
@@ -255,7 +408,7 @@ struct ProcessSingleEventImpl<_AllStates, std::tuple<_Row, _Rows...>>
 {
   bool operator()(const size_t current_state, size_t& new_state) const
   {
-    using row_t = std::remove_cv_t<std::remove_reference_t<_Row>>;
+    using row_t = std::remove_const_t<std::remove_reference_t<_Row>>;
     bool processed = false;
     if (state_number_v<typename row_t::src_state_t, _AllStates> == current_state)
     {
@@ -305,6 +458,8 @@ struct EventBundle
 {
   using event_t = std::remove_cv_t<_Event>;
   static_assert(is_event_v<event_t>, "must be event type");
+  using guard_t = _GuardF;
+  using action_t = _ActionF;
 
   EventBundle(_GuardF gf, _ActionF af) noexcept : m_guard{gf}, m_action{af} {}
 
@@ -418,6 +573,9 @@ struct TransitionTable
           typename src_state<_Rows>::type...,
           typename dst_state<_Rows>::type...
         >>;
+  using rows_t = std::tuple<_Rows...>;
+  /// just plain types, no references
+  using deps_t = detail::GatherRequiredDepTypes_t<rows_t>;
 
   static_assert(std::tuple_size<states_t>::value > 0,
                 "table must have at least 1 state");
@@ -426,7 +584,7 @@ struct TransitionTable
 
   TransitionTable(_Rows... rows) noexcept : m_rows{rows...} {}
 
-  std::tuple<_Rows...> m_rows;
+  rows_t m_rows;
 };
 
 template<typename... _Ts>
@@ -441,6 +599,8 @@ template<typename _T, typename... _Args>
 class Sm
 {
 public:
+  /// Dependencies are always passed as a reference. If the dependency is an
+  /// rvalue then it will be moved to an internal value.
   explicit Sm(_Args&&...)
   {
     process_anonymous_events();
@@ -467,6 +627,9 @@ public:
 
 private:
   using transition_table_t = decltype(_T{}());
+  using required_types_t = detail::GatherRequiredDepTypes_t<
+                                          typename transition_table_t::rows_t>;
+
   static constexpr auto states_count =
                   std::tuple_size<typename transition_table_t::states_t>::value;
   using state_number_t = typename detail::MinimalUnsigned<states_count - 1>::type;
