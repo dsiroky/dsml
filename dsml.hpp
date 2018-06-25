@@ -1,4 +1,5 @@
-// TODO smallest data type size_t -> min type
+// TODO action
+// TODO guard
 // TODO composite
 
 #pragma once
