@@ -1,8 +1,9 @@
 // TODO action
 // TODO guard
-// TODO warnings
 // TODO composite
+// TODO warnings
 // TODO comments
+// TODO automatic dependencies like boost::sml
 
 #pragma once
 #ifndef DSML_HPP__O06IR34S
@@ -206,97 +207,18 @@ using CallableArgsTuple_t = typename CallableArgsTupleImpl<_F>::type;
 
 //--------------------------------------------------------------------------
 
-// user     | dep args  | storage
-// T        | T&        | T&
-// T        | const T&  | const T&
-// T        | T&&       | T
-// T&       | T&        | T&
-// T&       | const T&  | xxx
-// T&       | T&&       | T
-// const T& | T&        | T&
-// const T& | const T&  | const T&
-// const T& | T&&       | T
-
-template<typename, typename>
-struct StorageTypeHelper;
-
-template<typename _U, typename _A>
-struct StorageTypeHelper<_U, _A&> { using type = _A&; };
-template<typename _U, typename _A>
-struct StorageTypeHelper<_U, const _A&> { using type = const _A&; };
-template<typename _U, typename _A>
-struct StorageTypeHelper<_U, _A&&> { using type = _A; };
-
-template<typename _U, typename _A>
-struct StorageTypeHelper<_U&, _A&> { using type = _A&; };
-template<typename _U, typename _A>
-struct StorageTypeHelper<_U&, const _A&> { using type = void; };
-template<typename _U, typename _A>
-struct StorageTypeHelper<_U&, _A&&> { using type = _A; };
-
-template<typename _U, typename _A>
-struct StorageTypeHelper<const _U&, _A&> { using type = _A&; };
-template<typename _U, typename _A>
-struct StorageTypeHelper<const _U&, const _A&> { using type = const _A&; };
-template<typename _U, typename _A>
-struct StorageTypeHelper<const _U&, _A&&> { using type = _A; };
-
-template<typename _U, typename _A>
-struct StorageType
+template<typename _F, typename _Deps, size_t... _Is>
+void _call(_F func, _Deps& deps, std::index_sequence<_Is...>)
 {
-  using type = std::conditional_t<true,
-                typename StorageTypeHelper<_U, _A>::type,
-                void>;
-};
+  func(std::get<_Is>(deps)...);
+}
 
-//--------------------------------------------------------------------------
-
-template<typename...>
-struct FindCompatible;
-template<typename _T>
-struct FindCompatible<_T>
+template<typename _F, typename _Deps>
+void call(_F func, _Deps& deps)
 {
-  using type = void;
-};
-template<typename _T, typename _A0, typename... _As>
-struct FindCompatible<_T, _A0, _As...>
-{
-  using type = std::conditional_t<not std::is_same<
-                                        typename StorageType<_T, _A0>::type,
-                                        void
-                                      >::value,
-                  _A0,
-                  typename FindCompatible<_T, _As...>::type
-                >;
-};
-
-template<typename _T, typename... _As>
-using FindCompatible_t = typename FindCompatible<_T, _As...>::type;
-
-//--------------------------------------------------------------------------
-
-template<typename>
-struct MakeStorageImpl;
-template<typename... _Us>
-struct MakeStorageImpl<std::tuple<_Us...>>
-{
-  template<typename... _Args>
-  static auto match(_Args&&... args)
-  {
-    auto args_tuple = std::forward_as_tuple(args...);
-    // silence "unused" warnings if args is empty
-    (void) args_tuple;
-    using storage_t = std::tuple<typename StorageType<_Us, FindCompatible_t<_Us, _Args...>>::type...>;
-    return storage_t{std::get<typename StorageType<_Us, FindCompatible_t<_Us, _Args...>>::type>(args_tuple)...};
-  }
-};
-
-/// Make a storage tuple initialized from random arguments. All required types
-/// in the tuple must have a match in those arguments.
-template<typename _UserTup, typename... _Args>
-auto make_storage(_Args&&... args)
-{
-  return MakeStorageImpl<_UserTup>::match(std::forward<_Args>(args)...);
+  using args_t = CallableArgsTuple_t<_F>;
+  using args_indices_t = std::make_index_sequence<std::tuple_size<args_t>::value>;
+  _call(func, deps, args_indices_t{});
 }
 
 //--------------------------------------------------------------------------
@@ -393,40 +315,49 @@ auto rows_with_event(const _Rows& rows, const _Event& evt)
 
 //==========================================================================
 
-template<typename _AllStates, typename... _Rows>
+/// Go through rows and try to match it against current state and filter by
+/// guards.
+template<typename _AllStates, typename _Deps, typename... _Rows>
 struct ProcessSingleEventImpl;
-template<typename _AllStates>
-struct ProcessSingleEventImpl<_AllStates, std::tuple<>>
+template<typename _AllStates, typename _Deps>
+struct ProcessSingleEventImpl<_AllStates, _Deps, std::tuple<>>
 {
-  bool operator()(const size_t, size_t&) const
+  bool operator()(const std::tuple<>&, const size_t, size_t&, _Deps&) const
   {
     return false;
   }
 };
-template<typename _AllStates, typename _Row, typename... _Rows>
-struct ProcessSingleEventImpl<_AllStates, std::tuple<_Row, _Rows...>>
+template<typename _AllStates, typename _Deps, typename _Row, typename... _Rows>
+struct ProcessSingleEventImpl<_AllStates, _Deps, std::tuple<_Row, _Rows...>>
 {
-  bool operator()(const size_t current_state, size_t& new_state) const
+  bool operator()(const std::tuple<_Row, _Rows...>& rows,
+                  const size_t current_state, size_t& new_state,
+                  _Deps& deps) const
   {
     using row_t = std::remove_const_t<std::remove_reference_t<_Row>>;
-    bool processed = false;
+    bool processed{false};
     if (state_number_v<typename row_t::src_state_t, _AllStates> == current_state)
     {
+      const auto& row = std::get<_Row>(rows);
+      const auto& action = row.m_event_bundle.m_action;
+      call(action, deps);
       new_state = state_number_v<typename row_t::dst_state_t, _AllStates>;
       processed = true;
     }
     return processed or
-          ProcessSingleEventImpl<_AllStates, std::tuple<_Rows...>>{}(
-                                                      current_state, new_state);
+          ProcessSingleEventImpl<_AllStates, _Deps, std::tuple<_Rows...>>{}(
+                            std::tuple<_Rows...>{std::get<_Rows>(rows)...},
+                            current_state, new_state, deps);
   }
 };
 
-template<typename _AllStates, typename _FilteredRows>
-bool process_single_event(const _AllStates&, const _FilteredRows&,
-                          const size_t current_state, size_t& new_state)
+template<typename _AllStates, typename _FilteredRows, typename _Deps>
+bool process_single_event(const _AllStates&, const _FilteredRows& filtered_rows,
+                          const size_t current_state, size_t& new_state,
+                          _Deps& deps)
 {
-  return ProcessSingleEventImpl<_AllStates, _FilteredRows>{}(current_state,
-                                                              new_state);
+  return ProcessSingleEventImpl<_AllStates, _Deps, _FilteredRows>{}(
+                                  filtered_rows, current_state, new_state, deps);
 }
 
 //==========================================================================
@@ -595,13 +526,14 @@ auto make_transition_table(_Ts... transitions) noexcept
 
 //==========================================================================
 
-template<typename _T, typename... _Args>
+template<typename _T, typename... _Deps>
 class Sm
 {
 public:
   /// Dependencies are always passed as a reference. If the dependency is an
   /// rvalue then it will be moved to an internal value.
-  explicit Sm(_Args&&...)
+  explicit Sm(_Deps&... deps)
+    : m_deps{deps...}
   {
     process_anonymous_events();
   }
@@ -645,7 +577,7 @@ private:
     size_t tmp_state{m_state_number};
     const auto processed = detail::process_single_event(
                               typename transition_table_t::states_t{}, rows,
-                              tmp_state, tmp_state);
+                              tmp_state, tmp_state, m_deps);
     m_state_number = static_cast<state_number_t>(tmp_state);
     return processed;
   }
@@ -658,6 +590,7 @@ private:
 
   //--------------------------------
 
+  std::tuple<_Deps&...> m_deps;
   const transition_table_t m_table = _T{}();
   /// actual state machine state
   state_number_t m_state_number{detail::TypeIndex<

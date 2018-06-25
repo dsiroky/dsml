@@ -327,162 +327,6 @@ TEST(CallableArgsTuple, FromLambdaWithReturn)
 
 //==========================================================================
 
-TEST(FindCompatible, Single_UserByValue)
-{
-  {
-    using t = dsml::detail::FindCompatible_t<int, int&>;
-    EXPECT_TRUE((std::is_same<t, int&>::value));
-  }
-  {
-    using t = dsml::detail::FindCompatible_t<int, const int&>;
-    EXPECT_TRUE((std::is_same<t, const int&>::value));
-  }
-  {
-    using t = dsml::detail::FindCompatible_t<int, int&&>;
-    EXPECT_TRUE((std::is_same<t, int&&>::value));
-  }
-}
-
-TEST(FindCompatible, Single_UserByReference)
-{
-  {
-    using t = dsml::detail::FindCompatible_t<int&, int&>;
-    EXPECT_TRUE((std::is_same<t, int&>::value));
-  }
-  {
-    using t = dsml::detail::FindCompatible_t<int&, const int&>;
-    EXPECT_TRUE((std::is_same<t, void>::value));
-  }
-  {
-    using t = dsml::detail::FindCompatible_t<int&, int&&>;
-    EXPECT_TRUE((std::is_same<t, int&&>::value));
-  }
-}
-
-TEST(FindCompatible, Single_UserByConstReference)
-{
-  {
-    using t = dsml::detail::FindCompatible_t<const int&, int&>;
-    EXPECT_TRUE((std::is_same<t, int&>::value));
-  }
-  {
-    using t = dsml::detail::FindCompatible_t<const int&, const int&>;
-    EXPECT_TRUE((std::is_same<t, const int&>::value));
-  }
-  {
-    using t = dsml::detail::FindCompatible_t<const int&, int&&>;
-    EXPECT_TRUE((std::is_same<t, int&&>::value));
-  }
-}
-
-TEST(FindCompatible, Misc)
-{
-  {
-    using t = dsml::detail::FindCompatible_t<const int&, float&, int&&, const char&>;
-    EXPECT_TRUE((std::is_same<t, int&&>::value));
-  }
-}
-
-//==========================================================================
-
-TEST(MakeStorage, EmptyBaseType)
-{
-  using user_t = std::tuple<>;
-
-  {
-    auto storage = dsml::detail::make_storage<user_t>();
-    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-  }
-  {
-    auto storage = dsml::detail::make_storage<user_t>(3);
-    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-  }
-  {
-    auto storage = dsml::detail::make_storage<user_t>(3, false);
-    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-  }
-}
-
-//--------------------------------------------------------------------------
-
-TEST(MakeStorage, SingleType)
-{
-  using user_t = std::tuple<int>;
-
-  {
-    //auto storage = dsml::detail::make_storage<user_t>(3);
-    //EXPECT_TRUE((std::is_same<std::tuple<int>, decltype(storage)>::value));
-    //EXPECT_EQ(3, std::get<0>(tup));
-  }
-//  {
-//    auto storage = dsml::detail::make_storage<user_t>(3, false);
-//    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-//    EXPECT_EQ(3, std::get<0>(tup));
-//  }
-//  {
-//    auto storage = dsml::detail::make_storage<user_t>(6.2, 3, false);
-//    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-//    EXPECT_EQ(3, std::get<0>(tup));
-//  }
-//  {
-//    const int i{8};
-//    const int& ref{i};
-//    auto storage = dsml::detail::make_storage<user_t>(6.2, ref, false);
-//    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-//    EXPECT_EQ(8, std::get<0>(tup));
-//  }
-}
-
-//--------------------------------------------------------------------------
-
-TEST(MakeStorage, SingleTypeReference)
-{
-  using user_t = std::tuple<int&>;
-
-//  {
-//    int i{34};
-//    auto storage = dsml::detail::make_storage<user_t>(i);
-//    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-//    EXPECT_EQ(34, std::get<0>(tup));
-//    std::get<0>() = 4;
-//    EXPECT_EQ(4, i);
-//  }
-//  {
-//    int i{34};
-//    auto storage = dsml::detail::make_storage<user_t>(i, false);
-//    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-//    EXPECT_EQ(34, std::get<0>(tup));
-//    std::get<0>() = 4;
-//    EXPECT_EQ(4, i);
-//  }
-//  {
-//    int i{34};
-//    auto storage = dsml::detail::make_storage<user_t>(6.2, i, false);
-//    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-//    EXPECT_EQ(34, std::get<0>(tup));
-//    std::get<0>() = 4;
-//    EXPECT_EQ(4, i);
-//  }
-//  {
-//    int i{8};
-//    int& ref{i};
-//    auto storage = dsml::detail::make_storage<user_t>(6.2, ref, false);
-//    EXPECT_TRUE((std::is_same<user_t, decltype(storage)>::value));
-//    EXPECT_EQ(8, std::get<0>(tup));
-//    std::get<0>() = 4;
-//    EXPECT_EQ(4, i);
-//  }
-}
-
-//--------------------------------------------------------------------------
-
-TEST(MakeStorage, SingleTypeConstReference)
-{
-  
-}
-
-//==========================================================================
-
 TEST(TypeTraits, IsState)
 {
   EXPECT_FALSE(dsml::is_state_v<int>);
@@ -878,18 +722,16 @@ TEST(Sm_ProcessEvent, TransitionAction)
   ); } };
 
   Data data{};
-  dsml::Sm<MyMachine> sm{};
+  dsml::Sm<MyMachine, Data> sm{data};
 
   sm.process_event("e1"_e);
   EXPECT_TRUE(sm.is<decltype("A"_s)>());
   EXPECT_TRUE(data.called);
 }
 
-//==========================================================================
+//--------------------------------------------------------------------------
 
-auto g = [](int){return true;};
-
-int main(int argc, char *argv[])
+TEST(Sm_ProcessEvent, TransitionActionDifferentRow)
 {
   struct Data
   {
@@ -900,14 +742,30 @@ int main(int argc, char *argv[])
   struct MyMachine { auto operator()() { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e
-                    / [](Data& data){ data.called = true; }
                     = "A"_s
+          ,"A"_s + "e2"_e
+                    / [](Data& data){ data.called = true; }
+                    = "B"_s
 
   ); } };
 
   Data data{};
-  dsml::Sm<MyMachine> sm{};
+  dsml::Sm<MyMachine, Data> sm{data};
 
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  EXPECT_FALSE(data.called);
+  sm.process_event("e2"_e);
+  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  EXPECT_TRUE(data.called);
+}
+
+//==========================================================================
+
+auto g = [](int){return true;};
+
+int main(int argc, char *argv[])
+{
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
