@@ -1,5 +1,4 @@
 // TODO composite
-// TODO warnings
 // TODO comments
 // TODO automatic dependencies like boost::sml
 

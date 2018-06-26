@@ -11,13 +11,7 @@ env.AppendUnique(
             "#googletest/googletest/include",
             ],
         CCFLAGS=[
-            "-pedantic",
             "-fdiagnostics-color",
-            "-Wall",
-            "-Wextra",
-            "-Wconversion",
-            "-Wmissing-braces",
-            "-Wshadow",
             ],
         CXXFLAGS=[
             "-std=c++17",
@@ -29,4 +23,31 @@ env.AppendUnique(
             ],
     )
 
-env.Program("test", Glob("*.cpp") + ["googletest/googletest/src/gtest-all.cc"])
+env_warnings = env.Clone()
+env_warnings.AppendUnique(
+        CCFLAGS=[
+            "-pedantic",
+            "-Wall",
+            "-Wextra",
+            "-Wconversion",
+            "-Wdeprecated",
+            "-Wfloat-conversion",
+            "-Wfloat-equal",
+            "-Wmissing-braces",
+            "-Wstrict-aliasing",
+            "-Wswitch",
+            "-Wswitch-default",
+            "-Wswitch-enum",
+            "-Wuninitialized",
+            "-Wunreachable-code",
+            "-Wunused-function",
+            "-Wunused-parameter",
+            "-Wunused-result",
+            "-Wunused-value",
+            "-Wunused-variable",
+            ],
+    )
+
+obj = env_warnings.Object(Glob("*.cpp"))
+
+env.Program("test", obj + ["googletest/googletest/src/gtest-all.cc"])
