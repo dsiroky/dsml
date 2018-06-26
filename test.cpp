@@ -947,8 +947,6 @@ TEST(Sm, AnonymousTransitionsDynamicGuardsAndActions)
 
 //==========================================================================
 
-auto g = [](int){return true;};
-
 int main(int argc, char *argv[])
 {
   ::testing::InitGoogleTest(&argc, argv);
