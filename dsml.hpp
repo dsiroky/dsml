@@ -562,7 +562,7 @@ public:
   }
 
   template<typename _State>
-  bool is() const noexcept
+  bool is(const _State&) const noexcept
   {
     constexpr auto number = detail::TypeIndex<
                                       std::remove_cv_t<_State>,

@@ -433,7 +433,7 @@ TEST(RowWithEvent, MultipleTransitions)
 
 //==========================================================================
 
-TEST(Sm_Is, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
+TEST(Sm, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
 {
   using namespace dsml::literals;
   struct MyMachine { auto operator()() { return dsml::make_transition_table(
@@ -443,13 +443,13 @@ TEST(Sm_Is, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
   ); } };
   dsml::Sm<MyMachine> sm{};
 
-  EXPECT_FALSE(sm.is<decltype(dsml::initial_state)>());
-  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  EXPECT_FALSE(sm.is(dsml::initial_state));
+  EXPECT_TRUE(sm.is("A"_s));
 }
 
 //--------------------------------------------------------------------------
 
-TEST(Sm_Is, OnlyInitialStateAndTransition_IsInTheInitialState)
+TEST(Sm, OnlyInitialStateAndTransition_IsInTheInitialState)
 {
   using namespace dsml::literals;
   struct MyMachine { auto operator()() { return dsml::make_transition_table(
@@ -459,8 +459,8 @@ TEST(Sm_Is, OnlyInitialStateAndTransition_IsInTheInitialState)
   ); } };
   dsml::Sm<MyMachine> sm{};
 
-  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
-  EXPECT_FALSE(sm.is<decltype("A"_s)>());
+  EXPECT_TRUE(sm.is(dsml::initial_state));
+  EXPECT_FALSE(sm.is("A"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -477,8 +477,8 @@ TEST(Sm, SingleTransition)
 
   sm.process_event("e1"_e);
 
-  EXPECT_FALSE(sm.is<decltype(dsml::initial_state)>());
-  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  EXPECT_FALSE(sm.is(dsml::initial_state));
+  EXPECT_TRUE(sm.is("A"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -495,7 +495,7 @@ TEST(Sm, SingleTransitionUnknownEvent_NoStateChange)
 
   sm.process_event("eunk"_e);
 
-  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+  EXPECT_TRUE(sm.is(dsml::initial_state));
 }
 
 //--------------------------------------------------------------------------
@@ -516,7 +516,7 @@ TEST(Sm, MultipleTransitionsSameEvents)
 
     sm.process_event("e1"_e);
 
-    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+    EXPECT_TRUE(sm.is("A"_s));
   }
   {
     dsml::Sm<MyMachine> sm{};
@@ -524,7 +524,7 @@ TEST(Sm, MultipleTransitionsSameEvents)
     sm.process_event("e1"_e);
     sm.process_event("e1"_e);
 
-    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+    EXPECT_TRUE(sm.is("B"_s));
   }
   {
     dsml::Sm<MyMachine> sm{};
@@ -533,7 +533,7 @@ TEST(Sm, MultipleTransitionsSameEvents)
     sm.process_event("e1"_e);
     sm.process_event("e1"_e);
 
-    EXPECT_TRUE(sm.is<decltype("C"_s)>());
+    EXPECT_TRUE(sm.is("C"_s));
   }
 }
 
@@ -555,7 +555,7 @@ TEST(Sm, MultipleTransitionsDifferentEvents)
 
     sm.process_event("e1"_e);
 
-    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+    EXPECT_TRUE(sm.is("A"_s));
   }
   {
     dsml::Sm<MyMachine> sm{};
@@ -563,7 +563,7 @@ TEST(Sm, MultipleTransitionsDifferentEvents)
     sm.process_event("e1"_e);
     sm.process_event("e2"_e);
 
-    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+    EXPECT_TRUE(sm.is("B"_s));
   }
   {
     dsml::Sm<MyMachine> sm{};
@@ -572,7 +572,7 @@ TEST(Sm, MultipleTransitionsDifferentEvents)
     sm.process_event("e2"_e);
     sm.process_event("e3"_e);
 
-    EXPECT_TRUE(sm.is<decltype("C"_s)>());
+    EXPECT_TRUE(sm.is("C"_s));
   }
 }
 
@@ -592,7 +592,7 @@ TEST(Sm, AnonymousEventAfterNormalEvent)
 
   sm.process_event("e1"_e);
 
-  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  EXPECT_TRUE(sm.is("B"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -611,7 +611,7 @@ TEST(Sm, AnonymousEventBeforeNormalEvent)
 
   sm.process_event("e1"_e);
 
-  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  EXPECT_TRUE(sm.is("B"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -630,7 +630,7 @@ TEST(Sm, MultipleAnonymousEvents)
 
   dsml::Sm<MyMachine> sm{};
 
-  EXPECT_TRUE(sm.is<decltype("D"_s)>());
+  EXPECT_TRUE(sm.is("D"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -655,7 +655,7 @@ TEST(Sm, MultipleAnonymousEventsAroundNormalEvent)
 
   sm.process_event("e1"_e);
 
-  EXPECT_TRUE(sm.is<decltype("H"_s)>());
+  EXPECT_TRUE(sm.is("H"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -675,14 +675,14 @@ TEST(Sm, DifferentEventsFromTheSameState)
 
     sm.process_event("e1"_e);
 
-    EXPECT_TRUE(sm.is<decltype("A"_s)>());
+    EXPECT_TRUE(sm.is("A"_s));
   }
   {
     dsml::Sm<MyMachine> sm{};
 
     sm.process_event("e2"_e);
 
-    EXPECT_TRUE(sm.is<decltype("B"_s)>());
+    EXPECT_TRUE(sm.is("B"_s));
   }
 }
 
@@ -701,11 +701,11 @@ TEST(Sm, TransitionLoop)
   dsml::Sm<MyMachine> sm{};
 
   sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+  EXPECT_TRUE(sm.is(dsml::initial_state));
   sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is<decltype(dsml::initial_state)>());
+  EXPECT_TRUE(sm.is(dsml::initial_state));
   sm.process_event("e2"_e);
-  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  EXPECT_TRUE(sm.is("A"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -730,7 +730,7 @@ TEST(Sm, TransitionAction)
   dsml::Sm<MyMachine, Data> sm{data};
 
   sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  EXPECT_TRUE(sm.is("A"_s));
   EXPECT_TRUE(data.called);
 }
 
@@ -756,7 +756,7 @@ TEST(Sm, AnonymousTransitionAction)
   dsml::Sm<MyMachine, Data> sm{data};
 
   sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  EXPECT_TRUE(sm.is("A"_s));
   EXPECT_TRUE(data.called);
 }
 
@@ -784,10 +784,10 @@ TEST(Sm, TransitionActionDifferentRow)
   dsml::Sm<MyMachine, Data> sm{data};
 
   sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is<decltype("A"_s)>());
+  EXPECT_TRUE(sm.is("A"_s));
   EXPECT_FALSE(data.called);
   sm.process_event("e2"_e);
-  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  EXPECT_TRUE(sm.is("B"_s));
   EXPECT_TRUE(data.called);
 }
 
@@ -819,7 +819,7 @@ TEST(Sm, TransitionGuard)
   dsml::Sm<MyMachine, Data> sm{data};
 
   sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  EXPECT_TRUE(sm.is("B"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -849,7 +849,7 @@ TEST(Sm, AnonymousTransitionGuard)
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  EXPECT_TRUE(sm.is<decltype("B"_s)>());
+  EXPECT_TRUE(sm.is("B"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -872,7 +872,7 @@ TEST(Sm, TransitionGuardAndAction)
 
   sm.process_event("e1"_e);
   EXPECT_EQ(std::vector<int>{{2}}, calls);
-  EXPECT_TRUE(sm.is<decltype("C"_s)>());
+  EXPECT_TRUE(sm.is("C"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -895,7 +895,7 @@ TEST(Sm, AnonymousTransitionGuardAndAction)
 
   sm.process_event("e1"_e);
   EXPECT_EQ(std::vector<int>{{2}}, calls);
-  EXPECT_TRUE(sm.is<decltype("C"_s)>());
+  EXPECT_TRUE(sm.is("C"_s));
 }
 
 //--------------------------------------------------------------------------
@@ -942,7 +942,7 @@ TEST(Sm, AnonymousTransitionsDynamicGuardsAndActions)
   dsml::Sm<MyMachine, Data> sm{d};
 
   EXPECT_EQ((std::vector<int>{{2, 4}}), d.calls);
-  EXPECT_TRUE(sm.is<decltype("E"_s)>());
+  EXPECT_TRUE(sm.is("E"_s));
 }
 
 //==========================================================================
