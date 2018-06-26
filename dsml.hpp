@@ -1,4 +1,5 @@
 // TODO composite
+// TODO on_entry
 // TODO comments
 // TODO automatic dependencies like boost::sml
 
@@ -449,6 +450,18 @@ struct State
     return StateTransition<State<_S>, EventBundle<_E, _GuardF, _ActionF>>{eb};
   }
 
+  template<typename _F>
+  auto operator[](_F guard) const noexcept
+  {
+    return *this + Event<detail::anonymous>{} [ guard ];
+  }
+
+  template<typename _F>
+  auto operator/(_F action) const noexcept
+  {
+    return *this + Event<detail::anonymous>{} / action;
+  }
+
   template<typename _DstS>
   auto operator=(const State<_DstS>& dst) const noexcept
   {
@@ -486,6 +499,16 @@ struct StateTransition
   auto operator=(const State<_DstS>&) const noexcept
   {
     return TableRow<_SrcS, _EventBundle, State<_DstS>>{m_event_bundle};
+  }
+
+  template<typename _F>
+  auto operator/(_F action) const noexcept
+  {
+    auto new_bundle = EventBundle<typename _EventBundle::event_t,
+                                  typename _EventBundle::guard_t,
+                                  _F>
+                                  {m_event_bundle.m_guard, action};
+    return StateTransition<_SrcS, decltype(new_bundle)>{std::move(new_bundle)};
   }
 
   _EventBundle m_event_bundle{};
