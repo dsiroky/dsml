@@ -431,6 +431,46 @@ TEST(RowWithEvent, MultipleTransitions)
       >::value));
 }
 
+//--------------------------------------------------------------------------
+
+TEST(IsTransitionTable, False)
+{
+  EXPECT_FALSE((dsml::detail::IsTransitionTable<void>::value));
+  EXPECT_FALSE((dsml::detail::IsTransitionTable<int>::value));
+  EXPECT_FALSE((dsml::detail::IsTransitionTable<struct S>::value));
+}
+
+TEST(IsTransitionTable, True)
+{
+  using namespace dsml::literals;
+  using table_t = decltype(dsml::make_transition_table( dsml::initial_state = "A"_s ));
+  EXPECT_TRUE((dsml::detail::IsTransitionTable<table_t>::value));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(HasTableOperator, False)
+{
+  EXPECT_FALSE((dsml::detail::HasTableOperator<void>::value));
+  EXPECT_FALSE((dsml::detail::HasTableOperator<int>::value));
+  EXPECT_FALSE((dsml::detail::HasTableOperator<struct S>::value));
+
+  struct WithCallOperator { int operator()() { return 42; } };
+  EXPECT_FALSE((dsml::detail::HasTableOperator<WithCallOperator>::value));
+}
+
+TEST(HasTableOperator, True)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+
+  ); } };
+
+  EXPECT_TRUE((dsml::detail::HasTableOperator<MyMachine>::value));
+}
+
 //==========================================================================
 
 TEST(Sm, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)

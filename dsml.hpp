@@ -362,6 +362,26 @@ bool process_single_event(const _AllStates&, const _FilteredRows& filtered_rows,
 }
 
 //==========================================================================
+
+template<typename>
+struct IsTransitionTable : std::false_type {};
+template<typename... _Ts>
+struct IsTransitionTable<TransitionTable<_Ts...>> : std::true_type {};
+
+template<typename...>
+struct HasTableOperatorHelper;
+template<typename... _Ts>
+struct HasTableOperatorHelper<TransitionTable<_Ts...>> {};
+/// type trait to detect a SM declaration
+/// (a struct with operator() returning a table)
+template <typename T, typename = int>
+struct HasTableOperator : std::false_type { };
+template <typename T>
+struct HasTableOperator<T, decltype(
+                      HasTableOperatorHelper<decltype(std::declval<T>()())>{}, 0
+                  )> : std::true_type { };
+
+//==========================================================================
 } // namespace
 //==========================================================================
 
@@ -569,6 +589,12 @@ public:
                                       typename transition_table_t::states_t
                                     >::value;
     return m_state_number == number;
+  }
+
+  template<typename _Submachine, typename _State>
+  bool is(const _State&) const noexcept
+  {
+    return false;
   }
 
   template<typename _ET>
