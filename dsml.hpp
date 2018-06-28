@@ -385,11 +385,6 @@ bool process_single_event(const _AllStates&, const _FilteredRows& filtered_rows,
 
 //==========================================================================
 
-template<typename>
-struct IsTransitionTable : std::false_type {};
-template<typename _T>
-struct IsTransitionTable<TransitionTable<_T>> : std::true_type {};
-
 template<typename...>
 struct HasTableOperatorHelper;
 template<typename _T>

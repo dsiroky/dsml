@@ -434,22 +434,6 @@ TEST(RowWithEvent, MultipleTransitions)
 
 //--------------------------------------------------------------------------
 
-TEST(IsTransitionTable, False)
-{
-  EXPECT_FALSE((dsml::detail::IsTransitionTable<void>::value));
-  EXPECT_FALSE((dsml::detail::IsTransitionTable<int>::value));
-  EXPECT_FALSE((dsml::detail::IsTransitionTable<struct S>::value));
-}
-
-TEST(IsTransitionTable, True)
-{
-  using namespace dsml::literals;
-  using table_t = decltype(dsml::make_transition_table( dsml::initial_state = "A"_s ));
-  EXPECT_TRUE((dsml::detail::IsTransitionTable<table_t>::value));
-}
-
-//--------------------------------------------------------------------------
-
 TEST(HasTableOperator, False)
 {
   EXPECT_FALSE((dsml::detail::HasTableOperator<void>::value));
