@@ -337,6 +337,7 @@ TEST(TypeTraits, IsState)
   EXPECT_FALSE(dsml::is_state_v<int>);
   EXPECT_TRUE(dsml::is_state_v<dsml::State<int>>);
   EXPECT_TRUE(dsml::is_state_v<dsml::State<struct S>>);
+  EXPECT_TRUE((dsml::is_state_v<dsml::State<struct S>>));
 }
 
 TEST(TypeTraits, IsEvent)
@@ -983,6 +984,71 @@ TEST(Sm, AnonymousTransitionsDynamicGuardsAndActions)
 
   EXPECT_EQ((std::vector<int>{{2, 4}}), d.calls);
   EXPECT_TRUE(sm.is("E"_s));
+}
+
+//==========================================================================
+
+TEST(SmComposite, AnonymousTransitions_IsInTheSubStateInitialState)
+{
+  using namespace dsml::literals;
+  struct Sub { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "SubA"_s
+
+  ); } };
+  struct Composite { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<Sub>{}
+
+  ); } };
+  dsml::Sm<Composite> sm{};
+
+  EXPECT_FALSE(sm.is(dsml::initial_state));
+  EXPECT_TRUE((sm.is<Sub>("SubA"_s)));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(SmComposite, TransitionInComposite_IsInTheCompositeStateInitialState)
+{
+  using namespace dsml::literals;
+  struct Sub { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "SubA"_s
+
+  ); } };
+  struct Composite { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = dsml::State<Sub>{}
+
+  ); } };
+  dsml::Sm<Composite> sm{};
+
+  EXPECT_TRUE(sm.is(dsml::initial_state));
+  EXPECT_FALSE((sm.is<Sub>("SubA"_s)));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(SmComposite, TransitionInComposite_ProcessEvent_IsInTheSubStateA)
+{
+  using namespace dsml::literals;
+  struct Sub { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state = "SubA"_s
+
+  ); } };
+  struct Composite { auto operator()() { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e = dsml::State<Sub>{}
+
+  ); } };
+  dsml::Sm<Composite> sm{};
+
+  sm.process_event("e1"_e);
+
+  EXPECT_FALSE(sm.is(dsml::initial_state));
+  EXPECT_TRUE((sm.is<Sub>("SubA"_s)));
 }
 
 //==========================================================================

@@ -11,6 +11,7 @@ env.AppendUnique(
             "#googletest/googletest/include",
             ],
         CCFLAGS=[
+            "-fmax-errors=10",
             "-fdiagnostics-color",
             ],
         CXXFLAGS=[

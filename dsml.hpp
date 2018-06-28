@@ -16,10 +16,34 @@
 namespace dsml {
 //==========================================================================
 
-template<typename... Rows>
+template<typename>
 struct TransitionTable;
+template<typename, typename, typename>
+struct TableRow;
+template<typename>
+struct State;
+template<typename>
+struct Event;
 
+//--------------------------------------------------------------------------
+
+template<typename _T>
+struct IsState : std::false_type {};
+template<typename _T>
+struct IsState<State<_T>> : std::true_type {};
+template<typename _T>
+constexpr auto is_state_v = IsState<_T>::value;
+
+template<typename _T>
+struct IsEvent : std::false_type {};
+template<typename _T>
+struct IsEvent<Event<_T>> : std::true_type {};
+template<typename _T>
+constexpr auto is_event_v = IsEvent<_T>::value;
+
+//==========================================================================
 namespace detail {
+//==========================================================================
 
 template <typename _T, _T...>
 struct CString;
@@ -97,33 +121,8 @@ struct PrependType<_T0, std::tuple<_T...>>
 template<typename... _T>
 using PrependType_t = typename PrependType<_T...>::type;
 
-template<typename... _T>
-struct ConcatTwoTuplesImpl;
-template<typename... _Ts1, typename... _Ts2>
-struct ConcatTwoTuplesImpl<std::tuple<_Ts1...>, std::tuple<_Ts2...>>
-{
-  using type = std::tuple<_Ts1..., _Ts2...>;
-};
-template<typename... _T>
-struct ConcatTuplesImpl;
-template<typename _Tup0>
-struct ConcatTuplesImpl<_Tup0>
-{
-  static_assert(IsTuple<_Tup0>::value, "must be tuple");
-  using type = _Tup0;
-};
-template<typename _Tup0, typename... _Tups>
-struct ConcatTuplesImpl<_Tup0, _Tups...>
-{
-  static_assert(IsTuple<_Tup0>::value, "must be tuple");
-  using type =
-        typename ConcatTwoTuplesImpl<
-                    _Tup0,
-                    typename ConcatTuplesImpl<_Tups...>::type
-                >::type;
-};
 template<typename... _Tuples>
-using ConcatTuples_t = typename ConcatTuplesImpl<_Tuples...>::type;
+using ConcatTuples_t = decltype(std::tuple_cat(std::declval<_Tuples>()...));
 
 template<typename... _T>
 struct UniqueTypesTuple;
@@ -224,14 +223,35 @@ auto call(_F func, _Deps& deps)
 const auto always_true_guard = [](){ return true; };
 const auto no_action = [](){};
 
-struct anonymous {};
-struct initial {};
+struct anonymous_t {};
+struct initial_t {};
+struct final_t {};
 
 //--------------------------------------------------------------------------
 
 /// Get state number by type from states tuple.
 template<typename _S, typename _States>
 constexpr size_t state_number_v = detail::TypeIndex<_S, _States>::value;
+
+//--------------------------------------------------------------------------
+
+/// Gather src types from rows.
+template<typename...>
+struct SrcStates;
+template<typename... _Rows>
+struct SrcStates<std::tuple<_Rows...>>
+{
+  using type = std::tuple<typename _Rows::src_state_t...>;
+};
+
+/// Gather dst types from rows.
+template<typename...>
+struct DstStates;
+template<typename... _Rows>
+struct DstStates<std::tuple<_Rows...>>
+{
+  using type = std::tuple<typename _Rows::dst_state_t...>;
+};
 
 //--------------------------------------------------------------------------
 
@@ -365,43 +385,172 @@ bool process_single_event(const _AllStates&, const _FilteredRows& filtered_rows,
 
 template<typename>
 struct IsTransitionTable : std::false_type {};
-template<typename... _Ts>
-struct IsTransitionTable<TransitionTable<_Ts...>> : std::true_type {};
+template<typename _T>
+struct IsTransitionTable<TransitionTable<_T>> : std::true_type {};
 
 template<typename...>
 struct HasTableOperatorHelper;
-template<typename... _Ts>
-struct HasTableOperatorHelper<TransitionTable<_Ts...>> {};
+template<typename _T>
+struct HasTableOperatorHelper<TransitionTable<_T>> {};
 /// type trait to detect a SM declaration
 /// (a struct with operator() returning a table)
 template <typename T, typename = int>
 struct HasTableOperator : std::false_type { };
 template <typename T>
 struct HasTableOperator<T, decltype(
-                      HasTableOperatorHelper<decltype(std::declval<T>()())>{}, 0
+                      HasTableOperatorHelper<decltype(std::declval<T>()())>{},
+                      0
                   )> : std::true_type { };
+
+//--------------------------------------------------------------------------
+
+template<typename _MachineDecl>
+auto transition_table_from_machine_declaration()
+{
+  static_assert(HasTableOperator<_MachineDecl>::value, "must be a SM declaration");
+  return _MachineDecl{}();
+}
+
+//--------------------------------------------------------------------------
+
+template<typename _State, typename _Wrap>
+struct WrapState
+{
+  static_assert(is_state_v<_State>, "");
+  using type = State<std::pair<_Wrap, typename _State::base_t>>;
+};
+
+//--------------------------------------------------------------------------
+
+template<typename _Tag, typename _Row>
+auto wrap_row(const _Row& row)
+{
+  return TableRow<
+              typename WrapState<typename _Row::src_state_t, _Tag>::type,
+              typename _Row::event_bundle_t,
+              typename WrapState<typename _Row::dst_state_t, _Tag>::type
+            >(row.m_event_bundle);
+}
+
+// tag holder is only for autodeduction (avoid instantiation of the tag itself)
+template<typename _Tag>
+struct TagHolder {};
+
+template<typename _Tag, typename _Rows, size_t... _Is>
+auto wrap_states_impl(const _Rows& rows, TagHolder<_Tag>, std::index_sequence<_Is...>)
+{
+  return std::make_tuple(wrap_row<_Tag>(std::get<_Is>(rows))...);
+}
+
+/// @return tuple of copied rows that contain wrapped states
+template<typename _Tag, typename _Rows>
+auto wrap_states(const _Rows& rows)
+{
+  using indices_t = std::make_index_sequence<std::tuple_size<_Rows>::value>;
+  return wrap_states_impl(rows, TagHolder<_Tag>{}, indices_t{});
+}
+
+//--------------------------------------------------------------------------
+
+template<typename _State, typename _PointType>
+struct WrapSubPoint
+{
+  using type = std::conditional_t<
+                HasTableOperator<typename _State::base_t>::value,
+                typename WrapState<State<_PointType>, typename _State::base_t>::type,
+                _State
+              >;
+};
+
+template<typename _Row>
+auto wrap_entry_exit_row(const _Row& row)
+{
+  return TableRow<
+              // map substate as a source state to its final state
+              typename WrapSubPoint<typename _Row::src_state_t, detail::final_t>::type,
+              typename _Row::event_bundle_t,
+              // map substate as a destination state to its initial state
+              typename WrapSubPoint<typename _Row::dst_state_t, detail::initial_t>::type
+            >(row.m_event_bundle);
+}
+
+template<typename _Rows, size_t... _Is>
+auto wrap_entry_exit_states_impl(const _Rows& rows, std::index_sequence<_Is...>)
+{
+  return std::make_tuple(wrap_entry_exit_row(std::get<_Is>(rows))...);
+}
+
+/// @return tuple of copied rows where source states representing a substate
+/// will be converted to final states of that submachine. Destination states
+/// will become initial states of that submachine.
+template<typename _Rows>
+auto wrap_entry_exit_states(const _Rows& rows)
+{
+  using indices_t = std::make_index_sequence<std::tuple_size<_Rows>::value>;
+  return wrap_entry_exit_states_impl(rows, indices_t{});
+}
+
+//==========================================================================
+
+/// Collect machine types from a transition table rows.
+template<typename...>
+struct CollectSubmachineTypes;
+template<>
+struct CollectSubmachineTypes<std::tuple<>>
+{
+  using type = std::tuple<>;
+};
+template<typename _Row0, typename... _Rows>
+struct CollectSubmachineTypes<std::tuple<_Row0, _Rows...>>
+{
+  using type = UniqueTypesTuple_t<ConcatTuples_t<
+      std::conditional_t<HasTableOperator<typename _Row0::src_state_t::base_t>::value,
+                        std::tuple<typename _Row0::src_state_t::base_t>,
+                        std::tuple<>>,
+      std::conditional_t<HasTableOperator<typename _Row0::dst_state_t::base_t>::value,
+                        std::tuple<typename _Row0::dst_state_t::base_t>,
+                        std::tuple<>>,
+      typename CollectSubmachineTypes<std::tuple<_Rows...>>::type
+    >>;
+};
+
+//--------------------------------------------------------------------------
+
+template<typename _Rows>
+auto make_transition_table_from_tuple(_Rows rows)
+{
+  return TransitionTable<_Rows>{std::move(rows)};
+}
+
+template<typename _MachineDecl>
+auto expand_table();
+
+/// Expand and concatenate sub-machines.
+template<typename...>
+struct AddSubmachines;
+template<typename... _STs>
+struct AddSubmachines<std::tuple<_STs...>>
+{
+  auto operator()()
+  {
+      return std::tuple_cat(wrap_states<_STs>(expand_table<_STs>().m_rows)...);
+  }
+};
+
+/// Generate recursively a big table for a composite machine with expanded
+/// sub-machines and well connected entry and exit points.
+template<typename _MachineDecl>
+auto expand_table()
+{
+  const auto table_base = transition_table_from_machine_declaration<_MachineDecl>();
+  return make_transition_table_from_tuple(std::tuple_cat(
+            wrap_entry_exit_states(std::move(table_base.m_rows)),
+            AddSubmachines<typename decltype(table_base)::submachine_types_t>{}()
+          ));
+}
 
 //==========================================================================
 } // namespace
-//==========================================================================
-
-template<typename _T> struct State;
-template<typename _T> struct Event;
-
-template<typename _T>
-struct IsState : std::false_type {};
-template<typename _T>
-struct IsState<State<_T>> : std::true_type {};
-template<typename _T>
-constexpr auto is_state_v = IsState<_T>::value;
-
-template<typename _T>
-struct IsEvent : std::false_type {};
-template<typename _T>
-struct IsEvent<Event<_T>> : std::true_type {};
-template<typename _T>
-constexpr auto is_event_v = IsEvent<_T>::value;
-
 //==========================================================================
 
 /// Groups together event, guard and action as a unification for the table row.
@@ -453,6 +602,8 @@ struct StateTransition;
 template<typename _S>
 struct State
 {
+  using base_t = _S;
+
   template<typename _E>
   auto operator+(const Event<_E>&) const noexcept
   {
@@ -473,23 +624,23 @@ struct State
   template<typename _F>
   auto operator[](_F guard) const noexcept
   {
-    return *this + Event<detail::anonymous>{} [ guard ];
+    return *this + Event<detail::anonymous_t>{} [ guard ];
   }
 
   template<typename _F>
   auto operator/(_F action) const noexcept
   {
-    return *this + Event<detail::anonymous>{} / action;
+    return *this + Event<detail::anonymous_t>{} / action;
   }
 
   template<typename _DstS>
   auto operator=(const State<_DstS>& dst) const noexcept
   {
-    return *this + Event<detail::anonymous>{} = dst;
+    return *this + Event<detail::anonymous_t>{} = dst;
   }
 };
 
-constexpr auto initial_state = State<detail::initial>{};
+constexpr auto initial_state = State<detail::initial_t>{};
 
 //==========================================================================
 
@@ -534,42 +685,37 @@ struct StateTransition
   _EventBundle m_event_bundle{};
 };
 
-template<typename... _Rows>
+template<typename _Rows>
 struct TransitionTable
 {
-  /// just helpers because Rows::src_state_t... is a bad syntax
-  template<typename _T>
-  struct src_state { using type = typename _T::src_state_t; };
-  template<typename _T>
-  struct dst_state { using type = typename _T::dst_state_t; };
-
-  using states_t = detail::UniqueTypesTuple_t<std::tuple<
-          typename src_state<_Rows>::type...,
-          typename dst_state<_Rows>::type...
+  using states_t = detail::UniqueTypesTuple_t<detail::ConcatTuples_t<
+          typename detail::SrcStates<_Rows>::type,
+          typename detail::DstStates<_Rows>::type
         >>;
-  using rows_t = std::tuple<_Rows...>;
+  using rows_t = _Rows;
   /// just plain types, no references
   using deps_t = detail::GatherRequiredDepTypes_t<rows_t>;
+  using submachine_types_t = typename detail::CollectSubmachineTypes<rows_t>::type;
 
   static_assert(std::tuple_size<states_t>::value > 0,
                 "table must have at least 1 state");
-  static_assert(detail::HasType<State<detail::initial>, states_t>::value,
+  static_assert(detail::HasType<State<detail::initial_t>, states_t>::value,
                 "table must have initial state");
 
-  TransitionTable(_Rows... rows) noexcept : m_rows{rows...} {}
+  TransitionTable(_Rows rows) noexcept : m_rows{rows} {}
 
   rows_t m_rows;
 };
 
 template<typename... _Ts>
-auto make_transition_table(_Ts... transitions) noexcept
+auto make_transition_table(_Ts... rows)
 {
-  return TransitionTable<_Ts...>{transitions...};
+  return TransitionTable<std::tuple<_Ts...>>{std::tuple<_Ts...>{rows...}};
 }
 
 //==========================================================================
 
-template<typename _T, typename... _Deps>
+template<typename _MachineDecl, typename... _Deps>
 class Sm
 {
 public:
@@ -594,7 +740,11 @@ public:
   template<typename _Submachine, typename _State>
   bool is(const _State&) const noexcept
   {
-    return false;
+    constexpr auto number = detail::TypeIndex<
+                                      typename detail::WrapState<std::remove_cv_t<_State>, _Submachine>::type,
+                                      typename transition_table_t::states_t
+                                    >::value;
+    return m_state_number == number;
   }
 
   template<typename _ET>
@@ -607,7 +757,7 @@ public:
   //--------------------------------
 
 private:
-  using transition_table_t = decltype(_T{}());
+  using transition_table_t = decltype(detail::expand_table<_MachineDecl>());
   using required_types_t = detail::GatherRequiredDepTypes_t<
                                           typename transition_table_t::rows_t>;
 
@@ -633,17 +783,17 @@ private:
 
   void process_anonymous_events()
   {
-    while (process_single_event(Event<detail::anonymous>{}))
+    while (process_single_event(Event<detail::anonymous_t>{}))
     { }
   }
 
   //--------------------------------
 
   std::tuple<_Deps&...> m_deps;
-  const transition_table_t m_table = _T{}();
+  const transition_table_t m_table = detail::expand_table<_MachineDecl>();
   /// actual state machine state
   state_number_t m_state_number{detail::TypeIndex<
-                                    State<detail::initial>,
+                                    State<detail::initial_t>,
                                     typename transition_table_t::states_t
                                   >::value};
 };
