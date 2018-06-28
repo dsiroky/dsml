@@ -1,10 +1,3 @@
-// TODO on_entry
-// TODO logging
-// TODO move private stuff to detail
-// TODO optimize
-// TODO comments
-// TODO automatic dependencies like boost::sml
-
 #pragma once
 #ifndef DSML_HPP__O06IR34S
 #define DSML_HPP__O06IR34S
