@@ -70,13 +70,13 @@ struct disjunction<_B1, _Bn...>
 //--------------------------------------------------------------------------
 
 /// provides the minimal unsigned type that can fit the number
-template<size_t _X>
+template<size_t _Num>
 struct MinimalUnsigned
 {
   using type =
-    std::conditional_t<_X <= std::numeric_limits<uint8_t>::max(),
+    std::conditional_t<_Num <= std::numeric_limits<uint8_t>::max(),
                   uint8_t,
-    std::conditional_t<_X <= std::numeric_limits<uint16_t>::max(),
+    std::conditional_t<_Num <= std::numeric_limits<uint16_t>::max(),
                   uint16_t,
                   uint32_t>>;
 };
@@ -232,8 +232,8 @@ struct final_t {};
 //--------------------------------------------------------------------------
 
 /// Get state number by type from states tuple.
-template<typename _S, typename _States>
-constexpr size_t state_number_v = detail::TypeIndex<_S, _States>::value;
+template<typename _State, typename _StateList>
+constexpr size_t state_number_v = detail::TypeIndex<_State, _StateList>::value;
 
 //--------------------------------------------------------------------------
 
@@ -609,10 +609,10 @@ struct Event
 template<typename _SrcS, typename _EventBundle>
 struct StateTransition;
 
-template<typename _S>
+template<typename _Base>
 struct State
 {
-  using base_t = _S;
+  using base_t = _Base;
 
   template<typename _E>
   auto operator+(const Event<_E>&) const noexcept
@@ -620,7 +620,7 @@ struct State
     using eb_t = EventBundle<Event<_E>,
                                 decltype(detail::always_true_guard),
                                 decltype(detail::no_action)>;
-    return StateTransition<State<_S>, eb_t>{
+    return StateTransition<State<base_t>, eb_t>{
                   eb_t{detail::always_true_guard, detail::no_action}
                 };
   }
@@ -628,7 +628,7 @@ struct State
   template<typename _E, typename _GuardF, typename _ActionF>
   auto operator+(const EventBundle<_E, _GuardF, _ActionF>& eb) const noexcept
   {
-    return StateTransition<State<_S>, EventBundle<_E, _GuardF, _ActionF>>{eb};
+    return StateTransition<State<base_t>, EventBundle<_E, _GuardF, _ActionF>>{eb};
   }
 
   template<typename _F>
