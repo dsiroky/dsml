@@ -657,6 +657,7 @@ struct State
 
 constexpr auto initial_state = State<detail::initial_t>{};
 constexpr auto final_state = State<detail::final_t>{};
+constexpr auto anonymous_event = Event<detail::anonymous_t>{};
 
 //==========================================================================
 
