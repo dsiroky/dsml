@@ -1,5 +1,7 @@
-// TODO composite
 // TODO on_entry
+// TODO logging
+// TODO move private stuff to detail
+// TODO optimize
 // TODO comments
 // TODO automatic dependencies like boost::sml
 
@@ -420,6 +422,19 @@ struct WrapState
   using type = State<std::pair<_Wrap, typename _State::base_t>>;
 };
 
+template<typename...>
+struct WrapStateInLayers;
+template<typename _State, typename _W0>
+struct WrapStateInLayers<_State, _W0>
+{
+  using type = typename WrapState<_State, _W0>::type;
+};
+template<typename _State, typename _W0, typename... _Ws>
+struct WrapStateInLayers<_State, _W0, _Ws...>
+{
+  using type = typename WrapState<typename WrapStateInLayers<_State, _Ws...>::type, _W0>::type;
+};
+
 //--------------------------------------------------------------------------
 
 template<typename _Tag, typename _Row>
@@ -641,6 +656,7 @@ struct State
 };
 
 constexpr auto initial_state = State<detail::initial_t>{};
+constexpr auto final_state = State<detail::final_t>{};
 
 //==========================================================================
 
@@ -737,11 +753,12 @@ public:
     return m_state_number == number;
   }
 
-  template<typename _Submachine, typename _State>
-  bool is(const _State&) const noexcept
+  /// XXX this will be removed and somehow unified with is()
+  template<typename _State, typename... _Submachines>
+  bool is_sub(const _State&, const _Submachines&...) const noexcept
   {
     constexpr auto number = detail::TypeIndex<
-                                      typename detail::WrapState<std::remove_cv_t<_State>, _Submachine>::type,
+                                      typename detail::WrapStateInLayers<std::remove_cv_t<_State>, _Submachines...>::type,
                                       typename transition_table_t::states_t
                                     >::value;
     return m_state_number == number;

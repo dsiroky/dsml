@@ -1048,7 +1048,112 @@ TEST(SmComposite, TransitionInComposite_ProcessEvent_IsInTheSubStateA)
   sm.process_event("e1"_e);
 
   EXPECT_FALSE(sm.is(dsml::initial_state));
-  EXPECT_TRUE((sm.is<Sub>("SubA"_s)));
+  EXPECT_TRUE(sm.is_sub("SubA"_s, Sub{}));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(SmMultilevelComposite, AnonymousTransitions_IsInTheSubStateInitialState)
+{
+  using namespace dsml::literals;
+  struct SubSub { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = "SubA"_s
+
+  ); } };
+  struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<SubSub>{}
+
+  ); } };
+  struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<Sub>{}
+
+  ); } };
+  dsml::Sm<Composite> sm{};
+
+  EXPECT_FALSE(sm.is(dsml::initial_state));
+  EXPECT_FALSE(sm.is_sub(dsml::initial_state, Sub{}));
+  EXPECT_TRUE(sm.is_sub("SubA"_s, Sub{}, SubSub{}));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(SmMultilevelComposite, AnonymousTransitions_InAndOut)
+{
+  using namespace dsml::literals;
+  struct SubSub { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = "SubA"_s
+          , "SubA"_s = dsml::final_state
+
+  ); } };
+  struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<SubSub>{}
+          , dsml::State<SubSub>{} = dsml::final_state
+
+  ); } };
+  struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<Sub>{}
+          , dsml::State<Sub>{} = dsml::final_state
+
+  ); } };
+  dsml::Sm<Composite> sm{};
+
+  EXPECT_FALSE(sm.is(dsml::initial_state));
+  EXPECT_TRUE(sm.is(dsml::final_state));
+  EXPECT_FALSE(sm.is_sub(dsml::initial_state, Sub{}));
+  EXPECT_FALSE(sm.is_sub(dsml::final_state, Sub{}));
+  EXPECT_FALSE(sm.is_sub(dsml::initial_state, Sub{}, SubSub{}));
+  EXPECT_FALSE(sm.is_sub("SubA"_s, Sub{}, SubSub{}));
+  EXPECT_FALSE(sm.is_sub(dsml::final_state, Sub{}, SubSub{}));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(SmMultilevelComposite, Mixture)
+{
+  struct Data
+  {
+    enum {F1, F2, F3} flag{F2};
+    std::vector<int> calls{};
+  };
+
+  using namespace dsml::literals;
+
+  struct SubSub { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + "e1"_e
+              / [](Data& d){ d.calls.push_back(1); }
+              = "SubA"_s
+          , "SubA"_s = dsml::final_state
+
+  ); } };
+  struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<SubSub>{}
+          , dsml::State<SubSub>{} = "A"_s
+          , "A"_s [ false_guard ] / ([](Data& d){d.calls.push_back(2);}) = "B"_s
+          , "A"_s [ true_guard ] / ([](Data& d){d.calls.push_back(3);}) = "C"_s
+          , "B"_s = dsml::final_state
+          , "C"_s = dsml::final_state
+
+  ); } };
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<Sub>{}
+
+  ); } };
+
+  Data data{};
+  dsml::Sm<MyMachine, Data> sm{data};
+
+  sm.process_event("e1"_e);
+  EXPECT_EQ((std::vector<int>{{1, 3}}), data.calls);
 }
 
 //==========================================================================
