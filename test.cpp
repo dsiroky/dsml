@@ -456,14 +456,14 @@ TEST(HasTableOperator, False)
   EXPECT_FALSE((dsml::detail::HasTableOperator<int>::value));
   EXPECT_FALSE((dsml::detail::HasTableOperator<struct S>::value));
 
-  struct WithCallOperator { int operator()() { return 42; } };
+  struct WithCallOperator { int operator()() const noexcept { return 42; } };
   EXPECT_FALSE((dsml::detail::HasTableOperator<WithCallOperator>::value));
 }
 
 TEST(HasTableOperator, True)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "A"_s
 
@@ -477,7 +477,7 @@ TEST(HasTableOperator, True)
 TEST(Sm, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "A"_s
 
@@ -493,7 +493,7 @@ TEST(Sm, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
 TEST(Sm, OnlyInitialStateAndTransition_IsInTheInitialState)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = "A"_s
 
@@ -509,7 +509,7 @@ TEST(Sm, OnlyInitialStateAndTransition_IsInTheInitialState)
 TEST(Sm, SingleTransition)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = "A"_s
 
@@ -527,7 +527,7 @@ TEST(Sm, SingleTransition)
 TEST(Sm, SingleTransitionUnknownEvent_NoStateChange)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = "A"_s
 
@@ -544,7 +544,7 @@ TEST(Sm, SingleTransitionUnknownEvent_NoStateChange)
 TEST(Sm, MultipleTransitionsSameEvents)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = "A"_s
           ,"A"_s + "e1"_e = "B"_s
@@ -583,7 +583,7 @@ TEST(Sm, MultipleTransitionsSameEvents)
 TEST(Sm, MultipleTransitionsDifferentEvents)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = "A"_s
           ,"A"_s + "e2"_e = "B"_s
@@ -622,7 +622,7 @@ TEST(Sm, MultipleTransitionsDifferentEvents)
 TEST(Sm, AnonymousEventAfterNormalEvent)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = "A"_s
           ,"A"_s = "B"_s
@@ -641,7 +641,7 @@ TEST(Sm, AnonymousEventAfterNormalEvent)
 TEST(Sm, AnonymousEventBeforeNormalEvent)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "A"_s
           ,"A"_s + "e1"_e = "B"_s
@@ -660,7 +660,7 @@ TEST(Sm, AnonymousEventBeforeNormalEvent)
 TEST(Sm, MultipleAnonymousEvents)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "A"_s
           ,"A"_s = "B"_s
@@ -679,7 +679,7 @@ TEST(Sm, MultipleAnonymousEvents)
 TEST(Sm, MultipleAnonymousEventsAroundNormalEvent)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "A"_s
           ,"A"_s = "B"_s
@@ -704,7 +704,7 @@ TEST(Sm, MultipleAnonymousEventsAroundNormalEvent)
 TEST(Sm, DifferentEventsFromTheSameState)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = "A"_s
           , dsml::initial_state + "e2"_e = "B"_s
@@ -732,7 +732,7 @@ TEST(Sm, DifferentEventsFromTheSameState)
 TEST(Sm, TransitionLoop)
 {
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = dsml::initial_state
           , dsml::initial_state + "e2"_e = "A"_s
@@ -759,7 +759,7 @@ TEST(Sm, TransitionAction)
   };
 
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e
                     / [](Data& data){ data.called = true; }
@@ -785,7 +785,7 @@ TEST(Sm, AnonymousTransitionAction)
   };
 
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state
                     / [](Data& data){ data.called = true; }
@@ -811,7 +811,7 @@ TEST(Sm, TransitionActionDifferentRow)
   };
 
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e
                     = "A"_s
@@ -842,7 +842,7 @@ TEST(Sm, TransitionGuard)
   };
 
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e
                     [ ([](const Data& d){ return d.flag == Data::F1; }) ]
@@ -873,7 +873,7 @@ TEST(Sm, AnonymousTransitionGuard)
   };
 
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state
                     [ ([](const Data& d){ return d.flag == Data::F1; }) ]
@@ -900,7 +900,7 @@ TEST(Sm, TransitionGuardAndAction)
   using V = std::vector<int>;
 
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "A"_s
           , "A"_s + "e1"_e [ false_guard ] / ([](V& v){v.push_back(1);}) = "B"_s
@@ -923,7 +923,7 @@ TEST(Sm, AnonymousTransitionGuardAndAction)
   using V = std::vector<int>;
 
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "A"_s
           , "A"_s [ false_guard ] / ([](V& v){v.push_back(1);}) = "B"_s
@@ -950,7 +950,7 @@ TEST(Sm, AnonymousTransitionsDynamicGuardsAndActions)
   };
 
   using namespace dsml::literals;
-  struct MyMachine { auto operator()() { return dsml::make_transition_table(
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "A"_s
           , "A"_s
@@ -991,12 +991,12 @@ TEST(Sm, AnonymousTransitionsDynamicGuardsAndActions)
 TEST(SmComposite, AnonymousTransitions_IsInTheSubStateInitialState)
 {
   using namespace dsml::literals;
-  struct Sub { auto operator()() { return dsml::make_transition_table(
+  struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "SubA"_s
 
   ); } };
-  struct Composite { auto operator()() { return dsml::make_transition_table(
+  struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = dsml::State<Sub>{}
 
@@ -1004,7 +1004,7 @@ TEST(SmComposite, AnonymousTransitions_IsInTheSubStateInitialState)
   dsml::Sm<Composite> sm{};
 
   EXPECT_FALSE(sm.is(dsml::initial_state));
-  EXPECT_TRUE((sm.is<Sub>("SubA"_s)));
+  EXPECT_TRUE(sm.is_sub("SubA"_s, Sub{}));
 }
 
 //--------------------------------------------------------------------------
@@ -1012,12 +1012,12 @@ TEST(SmComposite, AnonymousTransitions_IsInTheSubStateInitialState)
 TEST(SmComposite, TransitionInComposite_IsInTheCompositeStateInitialState)
 {
   using namespace dsml::literals;
-  struct Sub { auto operator()() { return dsml::make_transition_table(
+  struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "SubA"_s
 
   ); } };
-  struct Composite { auto operator()() { return dsml::make_transition_table(
+  struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = dsml::State<Sub>{}
 
@@ -1025,7 +1025,7 @@ TEST(SmComposite, TransitionInComposite_IsInTheCompositeStateInitialState)
   dsml::Sm<Composite> sm{};
 
   EXPECT_TRUE(sm.is(dsml::initial_state));
-  EXPECT_FALSE((sm.is<Sub>("SubA"_s)));
+  EXPECT_FALSE(sm.is_sub("SubA"_s, Sub{}));
 }
 
 //--------------------------------------------------------------------------
@@ -1033,12 +1033,12 @@ TEST(SmComposite, TransitionInComposite_IsInTheCompositeStateInitialState)
 TEST(SmComposite, TransitionInComposite_ProcessEvent_IsInTheSubStateA)
 {
   using namespace dsml::literals;
-  struct Sub { auto operator()() { return dsml::make_transition_table(
+  struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state = "SubA"_s
 
   ); } };
-  struct Composite { auto operator()() { return dsml::make_transition_table(
+  struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + "e1"_e = dsml::State<Sub>{}
 
