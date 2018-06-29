@@ -711,10 +711,6 @@ struct State
   }
 };
 
-static constexpr auto initial_state = State<detail::initial_t>{};
-static constexpr auto final_state = State<detail::final_t>{};
-static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
-
 //==========================================================================
 
 template<typename _SrcS, typename _EventBundle, typename _DstS>
@@ -878,6 +874,12 @@ private:
                                     typename transition_table_t::states_t
                                   >::value};
 };
+
+//==========================================================================
+
+static constexpr auto initial_state = State<detail::initial_t>{};
+static constexpr auto final_state = State<detail::final_t>{};
+static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
 
 //==========================================================================
 
