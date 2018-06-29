@@ -404,7 +404,8 @@ struct ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<>>
     return false;
   }
 };
-template<typename _AllStates, typename _Deps, typename _StateNum, typename _Row, typename... _Rows>
+template<typename _AllStates, typename _Deps, typename _StateNum, typename _Row,
+          typename... _Rows>
 struct ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<_Row, _Rows...>>
 {
   bool operator()(const std::tuple<_Row, _Rows...>& rows, _StateNum& state,
@@ -416,9 +417,7 @@ struct ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<_Row, _Ro
     bool processed{false};
     constexpr auto source_state =
                         state_number_v<typename row_t::src_state_t, _AllStates>;
-    if ((source_state == state)
-        and
-        call(guard, deps))
+    if ((source_state == state) and call(guard, deps))
     {
       const auto& action = row.m_event_bundle.m_action;
       call(action, deps);
