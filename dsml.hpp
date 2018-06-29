@@ -192,6 +192,26 @@ struct Apply<T, std::tuple<Ts...>> {
 template <template <class...> class T, class D>
 using Apply_t = typename Apply<T, D>::type;
 
+template<template <typename...> typename, typename...>
+struct Filter;
+template<template <typename...> typename _Filter>
+struct Filter<_Filter, std::tuple<>>
+{
+  using type = std::tuple<>;
+};
+template<template <typename...> typename _Filter, typename _T0, typename... _Ts>
+struct Filter<_Filter, std::tuple<_T0, _Ts...>>
+{
+private:
+  using rest_t = typename Filter<_Filter, std::tuple<_Ts...>>::type;
+public:
+  using type = std::conditional_t<_Filter<_T0>::value,
+                        ConcatTuples_t<std::tuple<_T0>, rest_t>,
+                        rest_t>;
+};
+template<template <typename...> typename _Filter, typename _Tuple>
+using Filter_t = typename Filter<_Filter, _Tuple>::type;
+
 //--------------------------------------------------------------------------
 
 template<size_t _I, typename... _Ts>
@@ -563,20 +583,13 @@ auto wrap_entry_exit_states(const _Rows& rows)
 
 //==========================================================================
 
-/// Collect machine types from a transition table rows.
-template<typename _Row>
-using SubmachineTypes_t = ConcatTuples_t<
-      std::conditional_t<HasTableOperator<typename _Row::src_state_t::base_t>::value,
-                        std::tuple<typename _Row::src_state_t::base_t>,
-                        std::tuple<>>,
-      std::conditional_t<HasTableOperator<typename _Row::dst_state_t::base_t>::value,
-                        std::tuple<typename _Row::dst_state_t::base_t>,
-                        std::tuple<>>
-    >;
+template<typename _State>
+using SubmachineType_t = typename _State::base_t;
 
-template<typename _Rows>
-using CollectSubmachineTypes_t =
-    UniqueTypesTuple_t<FlattenTuple_t<Apply_t<SubmachineTypes_t, _Rows>>>;
+/// Collect machine types from a transition table rows.
+template<typename _States>
+using CollectSubmachineTypes_t = UniqueTypesTuple_t<Filter_t<HasTableOperator,
+                                          Apply_t<SubmachineType_t, _States>>>;
 
 //--------------------------------------------------------------------------
 
@@ -754,7 +767,7 @@ struct TransitionTable
   using rows_t = _Rows;
   /// just plain types, no references
   using deps_t = detail::CollectRequiredDepTypes_t<rows_t>;
-  using submachine_types_t = detail::CollectSubmachineTypes_t<rows_t>;
+  using submachine_types_t = detail::CollectSubmachineTypes_t<states_t>;
 
   static_assert(std::tuple_size<states_t>::value > 0,
                 "table must have at least 1 state");
