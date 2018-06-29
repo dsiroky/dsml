@@ -341,21 +341,21 @@ auto rows_with_event(const _Rows& rows, const _Event& evt)
 
 /// Go through rows and try to match it against current state and filter by
 /// guards.
-template<typename _AllStates, typename _Deps, typename... _Rows>
+template<typename _AllStates, typename _Deps, typename _StateNum, typename... _Rows>
 struct ProcessSingleEventImpl;
-template<typename _AllStates, typename _Deps>
-struct ProcessSingleEventImpl<_AllStates, _Deps, std::tuple<>>
+template<typename _AllStates, typename _Deps, typename _StateNum>
+struct ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<>>
 {
-  bool operator()(const std::tuple<>&, const size_t, size_t&, _Deps&) const
+  bool operator()(const std::tuple<>&, const _StateNum, _StateNum&, _Deps&) const
   {
     return false;
   }
 };
-template<typename _AllStates, typename _Deps, typename _Row, typename... _Rows>
-struct ProcessSingleEventImpl<_AllStates, _Deps, std::tuple<_Row, _Rows...>>
+template<typename _AllStates, typename _Deps, typename _StateNum, typename _Row, typename... _Rows>
+struct ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<_Row, _Rows...>>
 {
   bool operator()(const std::tuple<_Row, _Rows...>& rows,
-                  const size_t current_state, size_t& new_state,
+                  const _StateNum current_state, _StateNum& new_state,
                   _Deps& deps) const
   {
     using row_t = std::remove_const_t<std::remove_reference_t<_Row>>;
@@ -372,18 +372,18 @@ struct ProcessSingleEventImpl<_AllStates, _Deps, std::tuple<_Row, _Rows...>>
       processed = true;
     }
     return processed or
-          ProcessSingleEventImpl<_AllStates, _Deps, std::tuple<_Rows...>>{}(
+          ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<_Rows...>>{}(
                             std::tuple<_Rows...>{std::get<_Rows>(rows)...},
                             current_state, new_state, deps);
   }
 };
 
-template<typename _AllStates, typename _FilteredRows, typename _Deps>
+template<typename _AllStates, typename _FilteredRows, typename _StateNum, typename _Deps>
 bool process_single_event(const _AllStates&, const _FilteredRows& filtered_rows,
-                          const size_t current_state, size_t& new_state,
+                          const _StateNum current_state, _StateNum& new_state,
                           _Deps& deps)
 {
-  return ProcessSingleEventImpl<_AllStates, _Deps, _FilteredRows>{}(
+  return ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, _FilteredRows>{}(
                                   filtered_rows, current_state, new_state, deps);
 }
 
@@ -793,11 +793,9 @@ private:
   {
     const auto rows = detail::rows_with_event(m_table.m_rows, evt);
     // only for re-casting
-    size_t tmp_state{m_state_number};
     const auto processed = detail::process_single_event(
                               typename transition_table_t::states_t{}, rows,
-                              tmp_state, tmp_state, m_deps);
-    m_state_number = static_cast<state_number_t>(tmp_state);
+                              m_state_number, m_state_number, m_deps);
     return processed;
   }
 
