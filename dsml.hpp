@@ -589,8 +589,8 @@ struct EventBundle
     return EventBundle<_Event, _GuardF, _F>{m_guard, action};
   }
 
-  _GuardF m_guard{};
-  _ActionF m_action{};
+  const _GuardF m_guard{};
+  const _ActionF m_action{};
 };
 
 template<typename _T>
@@ -677,7 +677,7 @@ struct TableRow
 
   TableRow(_EventBundle event_bundle) : m_event_bundle{event_bundle} {}
 
-  _EventBundle m_event_bundle{};
+  const _EventBundle m_event_bundle{};
 };
 
 template<typename _SrcS, typename _EventBundle>
@@ -703,7 +703,7 @@ struct StateTransition
     return StateTransition<_SrcS, decltype(new_bundle)>{std::move(new_bundle)};
   }
 
-  _EventBundle m_event_bundle{};
+  const _EventBundle m_event_bundle{};
 };
 
 template<typename _Rows>
@@ -723,9 +723,9 @@ struct TransitionTable
   static_assert(detail::HasType<State<detail::initial_t>, states_t>::value,
                 "table must have initial state");
 
-  TransitionTable(_Rows rows) noexcept : m_rows{rows} {}
+  TransitionTable(const _Rows& rows) noexcept : m_rows{rows} {}
 
-  rows_t m_rows;
+  const rows_t m_rows;
 };
 
 template<typename... _Ts>
