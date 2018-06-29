@@ -179,20 +179,31 @@ struct TypeIndex<_T, std::tuple<_Ts...>>
 //--------------------------------------------------------------------------
 
 template<typename _F>
-struct CallableArgsTupleImpl;
+struct CallableImpl;
 template<typename _Ret, typename... _Args>
-struct CallableArgsTupleImpl<_Ret(_Args...)>
-{ using type = std::tuple<_Args...>; };
+struct CallableImpl<_Ret(_Args...)>
+{
+  using ret_t = _Ret;
+  using args_t = std::tuple<_Args...>;
+};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableArgsTupleImpl<_Ret(_T::*)(_Args...) const>
-{ using type = std::tuple<_Args...>; };
+struct CallableImpl<_Ret(_T::*)(_Args...) const>
+{
+  using ret_t = _Ret;
+  using args_t = std::tuple<_Args...>;
+};
 template<typename _T>
-struct CallableArgsTupleImpl : CallableArgsTupleImpl<decltype(&_T::operator())>
+struct CallableImpl : CallableImpl<decltype(&_T::operator())>
 { };
 
 /// Get callable arguments type list without CV qualifiers and references.
 template<typename _F>
-using CallableArgsTuple_t = typename CallableArgsTupleImpl<_F>::type;
+struct Callable : CallableImpl<_F>
+{
+  Callable(_F f) : m_f{std::move(f)} {}
+private:
+  _F m_f;
+};
 
 //--------------------------------------------------------------------------
 
@@ -205,7 +216,7 @@ auto _call(_F func, _Deps& deps, std::index_sequence<_Is...>)
 template<typename _F, typename _Deps>
 auto call(_F func, _Deps& deps)
 {
-  using args_t = CallableArgsTuple_t<_F>;
+  using args_t = typename Callable<_F>::args_t;
   using args_indices_t = std::make_index_sequence<std::tuple_size<args_t>::value>;
   return _call(func, deps, args_indices_t{});
 }
@@ -258,11 +269,14 @@ template<typename _Row0, typename... _Rows>
 struct GatherRequiredDepTypesImpl<std::tuple<_Row0, _Rows...>>
 {
 //private:
-  using action_types_t = CallableArgsTuple_t<typename _Row0::event_bundle_t::action_t>;
-  using guard_types_t = CallableArgsTuple_t<typename _Row0::event_bundle_t::guard_t>;
+  using action_types_t =
+            typename Callable<typename _Row0::event_bundle_t::action_t>::args_t;
+  using guard_types_t =
+            typename Callable<typename _Row0::event_bundle_t::guard_t>::args_t;
 public:
   using type = ConcatTuples_t<action_types_t, guard_types_t,
-                            typename GatherRequiredDepTypesImpl<std::tuple<_Rows...>>::type>;
+                            typename GatherRequiredDepTypesImpl<
+                                                  std::tuple<_Rows...>>::type>;
 };
 
 /// Gather required parameter types (dependencies) from actions and guards
@@ -744,7 +758,10 @@ public:
   bool is_sub(const _State&, const _Submachines&...) const noexcept
   {
     constexpr auto number = detail::TypeIndex<
-                                      typename detail::WrapStateInLayers<std::remove_cv_t<_State>, _Submachines...>::type,
+                                      typename detail::WrapStateInLayers<
+                                                      std::remove_cv_t<_State>,
+                                                      _Submachines...
+                                                    >::type,
                                       typename transition_table_t::states_t
                                     >::value;
     return m_state_number == number;
