@@ -71,6 +71,12 @@ auto get_type_name() {
 
 //--------------------------------------------------------------------------
 
+// type holder is only for autodeduction (avoid instantiation of the type itself)
+template<typename _Type>
+struct TypeHolder { using type = _Type; };
+
+//--------------------------------------------------------------------------
+
 // missing in gcc 5 STL
 template<typename...> struct disjunction : std::false_type { };
 template<typename _B1> struct disjunction<_B1> : _B1 { };
@@ -492,12 +498,8 @@ auto wrap_row(const _Row& row)
             >(row.m_event_bundle);
 }
 
-// tag holder is only for autodeduction (avoid instantiation of the tag itself)
-template<typename _Tag>
-struct TagHolder {};
-
 template<typename _Tag, typename _Rows, size_t... _Is>
-auto wrap_states_impl(const _Rows& rows, TagHolder<_Tag>, std::index_sequence<_Is...>)
+auto wrap_states_impl(const _Rows& rows, TypeHolder<_Tag>, std::index_sequence<_Is...>)
 {
   return std::make_tuple(wrap_row<_Tag>(std::get<_Is>(rows))...);
 }
@@ -507,7 +509,7 @@ template<typename _Tag, typename _Rows>
 auto wrap_states(const _Rows& rows)
 {
   using indices_t = std::make_index_sequence<std::tuple_size<_Rows>::value>;
-  return wrap_states_impl(rows, TagHolder<_Tag>{}, indices_t{});
+  return wrap_states_impl(rows, TypeHolder<_Tag>{}, indices_t{});
 }
 
 //--------------------------------------------------------------------------
