@@ -167,6 +167,15 @@ auto tuple_ref_selection(const _Tuple& tuple, std::index_sequence<_Is...>)
   return std::make_tuple(std::ref(std::get<_Is>(tuple))...);
 }
 
+template <template <class...> class, class>
+struct Apply;
+template <template <class...> class T, class... Ts>
+struct Apply<T, std::tuple<Ts...>> {
+  using type = std::tuple<T<Ts>...>;
+};
+template <template <class...> class T, class D>
+using Apply_t = typename Apply<T, D>::type;
+
 //--------------------------------------------------------------------------
 
 template<size_t _I, typename... _Ts>
@@ -256,52 +265,32 @@ static constexpr size_t state_number_v = detail::TypeIndex<_State, _StateList>::
 
 //--------------------------------------------------------------------------
 
-/// Gather src types from rows.
-template<typename...>
-struct SrcStates;
-template<typename... _Rows>
-struct SrcStates<std::tuple<_Rows...>>
-{
-  using type = std::tuple<typename _Rows::src_state_t...>;
-};
+template<typename _Row>
+using SrcState_t = typename _Row::src_state_t;
+template<typename _Rows>
+using SrcStates_t = Apply_t<SrcState_t, _Rows>;
 
-/// Gather dst types from rows.
-template<typename...>
-struct DstStates;
-template<typename... _Rows>
-struct DstStates<std::tuple<_Rows...>>
-{
-  using type = std::tuple<typename _Rows::dst_state_t...>;
-};
+template<typename _Row>
+using DstState = typename _Row::dst_state_t;
+template<typename _Rows>
+using DstStates_t = Apply_t<DstState, _Rows>;
 
 //--------------------------------------------------------------------------
 
-template<typename... _Rows>
-struct GatherRequiredDepTypesImpl;
-template<>
-struct GatherRequiredDepTypesImpl<std::tuple<>>
-{
-  using type = std::tuple<>;
-};
-template<typename _Row0, typename... _Rows>
-struct GatherRequiredDepTypesImpl<std::tuple<_Row0, _Rows...>>
-{
-//private:
-  using action_types_t =
-            typename Callable<typename _Row0::event_bundle_t::action_t>::args_t;
-  using guard_types_t =
-            typename Callable<typename _Row0::event_bundle_t::guard_t>::args_t;
-public:
-  using type = ConcatTuples_t<action_types_t, guard_types_t,
-                            typename GatherRequiredDepTypesImpl<
-                                                  std::tuple<_Rows...>>::type>;
-};
+template<typename _Row>
+using ActionArgumentList_t =
+            typename Callable<typename _Row::event_bundle_t::action_t>::args_t;
+template<typename _Row>
+using GuardArgumentList_t =
+            typename Callable<typename _Row::event_bundle_t::guard_t>::args_t;
 
 /// Gather required parameter types (dependencies) from actions and guards
 /// signatures.
 template<typename _Rows>
-using GatherRequiredDepTypes_t = UniqueTypesTuple_t<
-                              typename GatherRequiredDepTypesImpl<_Rows>::type>;
+using GatherRequiredDepTypes_t = UniqueTypesTuple_t<ConcatTuples_t<
+      Apply_t<ActionArgumentList_t, _Rows>,
+      Apply_t<GuardArgumentList_t, _Rows>
+    >>;
 
 //--------------------------------------------------------------------------
 
@@ -758,8 +747,8 @@ template<typename _Rows>
 struct TransitionTable
 {
   using states_t = detail::UniqueTypesTuple_t<detail::ConcatTuples_t<
-          typename detail::SrcStates<_Rows>::type,
-          typename detail::DstStates<_Rows>::type
+          detail::SrcStates_t<_Rows>,
+          detail::DstStates_t<_Rows>
         >>;
   using rows_t = _Rows;
   /// just plain types, no references
