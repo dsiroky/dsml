@@ -192,6 +192,15 @@ TEST(TypeTraits, IsEvent)
 
 //==========================================================================
 
+TEST(GetTypeName, ReturnsString)
+{
+  EXPECT_STREQ("int", dsml::detail::get_type_name<int>());
+  EXPECT_STREQ("float", dsml::detail::get_type_name<float>());
+  EXPECT_STREQ("std::tuple<char*>", dsml::detail::get_type_name<std::tuple<char*>>());
+}
+
+//==========================================================================
+
 TEST(RowWithEvent, NoMatch_EmptyTuple)
 {
   using namespace dsml::literals;

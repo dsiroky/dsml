@@ -52,6 +52,24 @@ struct CString<char, _Chrs...> {
 };
 
 //--------------------------------------------------------------------------
+//
+template <class, size_t N, size_t... Ns>
+auto get_type_name_impl(const char *ptr, std::index_sequence<Ns...>) {
+  static const char str[] = {ptr[N + Ns]..., 0};
+  return str;
+}
+template <typename T>
+auto get_type_name() {
+#if defined(__GNUC__)
+  using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 45 - 2>;
+  return detail::get_type_name_impl<T, 45>(__PRETTY_FUNCTION__, seq_t{});
+#elif defined(__clang__)
+  using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 40 - 2>;
+  return detail::get_type_name_impl<T, 40>(__PRETTY_FUNCTION__, seq_t{});
+#endif
+}
+
+//--------------------------------------------------------------------------
 
 // missing in gcc 5 STL
 template<typename...> struct disjunction : std::false_type { };
@@ -336,6 +354,41 @@ auto rows_with_event(const _Rows& rows, const _Event& evt)
   using indices_t = decltype(RowsWithEventIndices(evt, rows, all_indices_t{}));
   return tuple_ref_selection(rows, indices_t{});
 }
+
+//==========================================================================
+
+template<typename...>
+struct GetCurrentStateNameImpl;
+template<typename _AllStates>
+struct GetCurrentStateNameImpl<_AllStates, std::tuple<>>
+{
+  auto operator()(size_t)
+  {
+    return "N/A";
+  }
+};
+template<typename _AllStates, typename _S0, typename... _Ss>
+struct GetCurrentStateNameImpl<_AllStates, std::tuple<_S0, _Ss...>>
+{
+  auto operator()(size_t n)
+  {
+    if (n == TypeIndex<_S0, _AllStates>::value)
+    {
+      return get_type_name<typename _S0::base_t>();
+    } else {
+      return GetCurrentStateNameImpl<_AllStates, std::tuple<_Ss...>>{}(n);
+    }
+  }
+};
+
+template<typename _AllStates>
+struct GetCurrentStateName
+{
+  auto operator()(size_t n)
+  {
+    return GetCurrentStateNameImpl<_AllStates, _AllStates>{}(n);
+  }
+};
 
 //==========================================================================
 
@@ -772,6 +825,12 @@ public:
     return m_state_number == number;
   }
 
+  const char* get_current_state_name()
+  {
+    return detail::GetCurrentStateName<typename transition_table_t::states_t>{}(
+                                                                m_state_number);
+  }
+
   template<typename _ET>
   void process_event(const Event<_ET>& event)
   {
@@ -820,8 +879,6 @@ private:
                                     typename transition_table_t::states_t
                                   >::value};
 };
-
-
 
 //==========================================================================
 
