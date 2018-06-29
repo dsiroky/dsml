@@ -142,6 +142,16 @@ using PrependType_t = typename PrependType<_T...>::type;
 
 template<typename... _Tuples>
 using ConcatTuples_t = decltype(std::tuple_cat(std::declval<_Tuples>()...));
+/// concatenate subtuples
+template<typename>
+struct FlattenTuple;
+template<typename... _Ts>
+struct FlattenTuple<std::tuple<_Ts...>>
+{
+  using type = ConcatTuples_t<_Ts...>;
+};
+template<typename _Tuple>
+using FlattenTuple_t = typename FlattenTuple<_Tuple>::type;
 
 template<typename... _T>
 struct UniqueTypesTuple;
@@ -272,30 +282,29 @@ static constexpr size_t state_number_v = detail::TypeIndex<_State, _StateList>::
 //--------------------------------------------------------------------------
 
 template<typename _Row>
-using SrcState_t = typename _Row::src_state_t;
-template<typename _Rows>
-using SrcStates_t = Apply_t<SrcState_t, _Rows>;
-
+using RowSrcState_t = typename _Row::src_state_t;
 template<typename _Row>
-using DstState = typename _Row::dst_state_t;
+using RowDstState_t = typename _Row::dst_state_t;
 template<typename _Rows>
-using DstStates_t = Apply_t<DstState, _Rows>;
+using CollectStates_t = UniqueTypesTuple_t<ConcatTuples_t<
+                      Apply_t<RowSrcState_t, _Rows>,
+                      Apply_t<RowDstState_t, _Rows>
+                    >>;
 
 //--------------------------------------------------------------------------
 
 template<typename _Row>
-using ActionArgumentList_t =
-            typename Callable<typename _Row::event_bundle_t::action_t>::args_t;
-template<typename _Row>
 using GuardArgumentList_t =
             typename Callable<typename _Row::event_bundle_t::guard_t>::args_t;
-
-/// Gather required parameter types (dependencies) from actions and guards
+template<typename _Row>
+using ActionArgumentList_t =
+            typename Callable<typename _Row::event_bundle_t::action_t>::args_t;
+/// Collect required parameter types (dependencies) from actions and guards
 /// signatures.
 template<typename _Rows>
-using GatherRequiredDepTypes_t = UniqueTypesTuple_t<ConcatTuples_t<
-      Apply_t<ActionArgumentList_t, _Rows>,
-      Apply_t<GuardArgumentList_t, _Rows>
+using CollectRequiredDepTypes_t = UniqueTypesTuple_t<ConcatTuples_t<
+      Apply_t<GuardArgumentList_t, _Rows>,
+      Apply_t<ActionArgumentList_t, _Rows>
     >>;
 
 //--------------------------------------------------------------------------
@@ -555,26 +564,19 @@ auto wrap_entry_exit_states(const _Rows& rows)
 //==========================================================================
 
 /// Collect machine types from a transition table rows.
-template<typename...>
-struct CollectSubmachineTypes;
-template<>
-struct CollectSubmachineTypes<std::tuple<>>
-{
-  using type = std::tuple<>;
-};
-template<typename _Row0, typename... _Rows>
-struct CollectSubmachineTypes<std::tuple<_Row0, _Rows...>>
-{
-  using type = UniqueTypesTuple_t<ConcatTuples_t<
-      std::conditional_t<HasTableOperator<typename _Row0::src_state_t::base_t>::value,
-                        std::tuple<typename _Row0::src_state_t::base_t>,
+template<typename _Row>
+using SubmachineTypes_t = ConcatTuples_t<
+      std::conditional_t<HasTableOperator<typename _Row::src_state_t::base_t>::value,
+                        std::tuple<typename _Row::src_state_t::base_t>,
                         std::tuple<>>,
-      std::conditional_t<HasTableOperator<typename _Row0::dst_state_t::base_t>::value,
-                        std::tuple<typename _Row0::dst_state_t::base_t>,
-                        std::tuple<>>,
-      typename CollectSubmachineTypes<std::tuple<_Rows...>>::type
-    >>;
-};
+      std::conditional_t<HasTableOperator<typename _Row::dst_state_t::base_t>::value,
+                        std::tuple<typename _Row::dst_state_t::base_t>,
+                        std::tuple<>>
+    >;
+
+template<typename _Rows>
+using CollectSubmachineTypes_t =
+    UniqueTypesTuple_t<FlattenTuple_t<Apply_t<SubmachineTypes_t, _Rows>>>;
 
 //--------------------------------------------------------------------------
 
@@ -748,14 +750,11 @@ struct StateTransition
 template<typename _Rows>
 struct TransitionTable
 {
-  using states_t = detail::UniqueTypesTuple_t<detail::ConcatTuples_t<
-          detail::SrcStates_t<_Rows>,
-          detail::DstStates_t<_Rows>
-        >>;
+  using states_t = detail::CollectStates_t<_Rows>;
   using rows_t = _Rows;
   /// just plain types, no references
-  using deps_t = detail::GatherRequiredDepTypes_t<rows_t>;
-  using submachine_types_t = typename detail::CollectSubmachineTypes<rows_t>::type;
+  using deps_t = detail::CollectRequiredDepTypes_t<rows_t>;
+  using submachine_types_t = detail::CollectSubmachineTypes_t<rows_t>;
 
   static_assert(std::tuple_size<states_t>::value > 0,
                 "table must have at least 1 state");
@@ -828,7 +827,7 @@ public:
 
 private:
   using transition_table_t = decltype(detail::expand_table<_MachineDecl>());
-  using required_types_t = detail::GatherRequiredDepTypes_t<
+  using required_types_t = detail::CollectRequiredDepTypes_t<
                                           typename transition_table_t::rows_t>;
 
   static constexpr auto states_count =
