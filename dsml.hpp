@@ -100,11 +100,25 @@ struct MinimalUnsigned
 
 //--------------------------------------------------------------------------
 
-template<size_t... _Is1, size_t... _Is2>
-auto concat_index_seq(std::index_sequence<_Is1...>, std::index_sequence<_Is2...>)
+template<size_t, typename>
+struct PrependIndex;
+template<size_t _I0, size_t... _Is>
+struct PrependIndex<_I0, std::index_sequence<_Is...>>
 {
-  return std::index_sequence<_Is1..., _Is2...>{};
-}
+  using type = std::index_sequence<_I0, _Is...>;
+};
+template<size_t _I, typename _Seq>
+using PrependIndex_t = typename PrependIndex<_I, _Seq>::type;
+
+template<typename, typename>
+struct ConcatIndexSeq;
+template<size_t... _Is1, size_t... _Is2>
+struct ConcatIndexSeq<std::index_sequence<_Is1...>, std::index_sequence<_Is2...>>
+{
+  using type = std::index_sequence<_Is1..., _Is2...>;
+};
+template<typename _S1, typename _S2>
+using ConcatIndexSeq_t = typename ConcatIndexSeq<_S1, _S2>::type;
 
 //--------------------------------------------------------------------------
 
@@ -214,6 +228,32 @@ public:
 };
 template<template <typename...> typename _Filter, typename _Tuple>
 using Filter_t = typename Filter<_Filter, _Tuple>::type;
+
+template<template <typename...> typename, typename, typename>
+struct TupleIndexFilter;
+template<template <typename...> typename _Filter, typename _Tuple>
+struct TupleIndexFilter<_Filter, _Tuple, std::index_sequence<>>
+{
+  using type = std::index_sequence<>;
+};
+template<template <typename...> typename _Filter, typename _Tuple,
+          size_t _I0, size_t... _Is>
+struct TupleIndexFilter<_Filter, _Tuple, std::index_sequence<_I0, _Is...>>
+{
+private:
+  using rest_t = typename TupleIndexFilter<_Filter, _Tuple,
+                                            std::index_sequence<_Is...>
+                                          >::type;
+public:
+  using type = std::conditional_t<_Filter<
+                                  typename std::tuple_element<_I0, _Tuple>::type
+                                >::value,
+                        PrependIndex_t<_I0, rest_t>,
+                        rest_t>;
+};
+template<template <typename...> typename _Filter, typename _Tuple>
+using TupleIndexFilter_t = typename TupleIndexFilter<_Filter, _Tuple,
+                std::make_index_sequence<std::tuple_size<_Tuple>::value>>::type;
 
 //--------------------------------------------------------------------------
 
@@ -332,53 +372,19 @@ using CollectRequiredDepTypes_t = UniqueTypesTuple_t<ConcatTuples_t<
 
 //--------------------------------------------------------------------------
 
-template<typename _Event, typename _Rows, size_t... _Is>
-struct RowsWithEventIndicesImpl;
-template<typename _Event, typename _Rows>
-struct RowsWithEventIndicesImpl<_Event, _Rows>
+template<typename _Rows, typename _Event>
+struct RowsWithEventIndices
 {
-  using indices_t = std::index_sequence<>;
+  template<typename _Row>
+  struct filter_t : std::is_same<typename _Row::event_bundle_t::event_t, _Event> {};
+  using indices_t = TupleIndexFilter_t<filter_t, _Rows>;
 };
-template<typename _Event, typename _Rows, size_t _I>
-struct RowsWithEventIndicesImpl<_Event, _Rows, _I>
-{
-  using indices_t = std::conditional_t<
-        std::is_same<
-              typename std::tuple_element_t<_I, _Rows>::event_bundle_t::event_t,
-              _Event
-            >::value,
-        std::index_sequence<_I>,
-        std::index_sequence<>
-      >;
-};
-template<typename _Event, typename _Rows, size_t _I, size_t... _Is>
-struct RowsWithEventIndicesImpl<_Event, _Rows, _I, _Is...>
-{
-  using indices_t = std::conditional_t<
-        std::is_same<
-              typename std::tuple_element_t<_I, _Rows>::event_bundle_t::event_t,
-              _Event
-            >::value,
-        decltype(concat_index_seq(std::index_sequence<_I>{},
-                                  typename RowsWithEventIndicesImpl<
-                                              _Event, _Rows, _Is...
-                                            >::indices_t{})),
-        typename RowsWithEventIndicesImpl<_Event, _Rows, _Is...>::indices_t
-      >;
-};
-
-template<typename _Event, typename _Rows, size_t... _Is>
-auto RowsWithEventIndices(_Event, _Rows, std::index_sequence<_Is...>)
-{
-  return typename RowsWithEventIndicesImpl<_Event, _Rows, _Is...>::indices_t{};
-}
 
 /// @return tuple of references to rows where the event is present
 template<typename _Rows, typename _Event>
-auto rows_with_event(const _Rows& rows, const _Event& evt)
+auto rows_with_event(const _Rows& rows, const _Event&)
 {
-  using all_indices_t = std::make_index_sequence<std::tuple_size<_Rows>::value>;
-  using indices_t = decltype(RowsWithEventIndices(evt, rows, all_indices_t{}));
+  using indices_t = typename RowsWithEventIndices<_Rows, _Event>::indices_t;
   return tuple_ref_selection(rows, indices_t{});
 }
 
