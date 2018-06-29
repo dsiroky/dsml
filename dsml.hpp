@@ -27,14 +27,14 @@ struct IsState : std::false_type {};
 template<typename _T>
 struct IsState<State<_T>> : std::true_type {};
 template<typename _T>
-constexpr auto is_state_v = IsState<_T>::value;
+static constexpr auto is_state_v = IsState<_T>::value;
 
 template<typename _T>
 struct IsEvent : std::false_type {};
 template<typename _T>
 struct IsEvent<Event<_T>> : std::true_type {};
 template<typename _T>
-constexpr auto is_event_v = IsEvent<_T>::value;
+static constexpr auto is_event_v = IsEvent<_T>::value;
 
 //==========================================================================
 namespace detail {
@@ -178,17 +178,14 @@ struct TypeIndex<_T, std::tuple<_Ts...>>
 
 //--------------------------------------------------------------------------
 
-template<typename... _Args>
-using RawArgs_t = std::tuple<_Args...>;
-
 template<typename _F>
 struct CallableArgsTupleImpl;
 template<typename _Ret, typename... _Args>
 struct CallableArgsTupleImpl<_Ret(_Args...)>
-{ using type = RawArgs_t<_Args...>; };
+{ using type = std::tuple<_Args...>; };
 template<typename _Ret, typename _T, typename... _Args>
 struct CallableArgsTupleImpl<_Ret(_T::*)(_Args...) const>
-{ using type = RawArgs_t<_Args...>; };
+{ using type = std::tuple<_Args...>; };
 template<typename _T>
 struct CallableArgsTupleImpl : CallableArgsTupleImpl<decltype(&_T::operator())>
 { };
@@ -215,8 +212,8 @@ auto call(_F func, _Deps& deps)
 
 //--------------------------------------------------------------------------
 
-const auto always_true_guard = [](){ return true; };
-const auto no_action = [](){};
+static const auto always_true_guard = [](){ return true; };
+static const auto no_action = [](){};
 
 struct anonymous_t {};
 struct initial_t {};
@@ -226,7 +223,7 @@ struct final_t {};
 
 /// Get state number by type from states tuple.
 template<typename _State, typename _StateList>
-constexpr size_t state_number_v = detail::TypeIndex<_State, _StateList>::value;
+static constexpr size_t state_number_v = detail::TypeIndex<_State, _StateList>::value;
 
 //--------------------------------------------------------------------------
 
@@ -643,9 +640,9 @@ struct State
   }
 };
 
-constexpr auto initial_state = State<detail::initial_t>{};
-constexpr auto final_state = State<detail::final_t>{};
-constexpr auto anonymous_event = Event<detail::anonymous_t>{};
+static constexpr auto initial_state = State<detail::initial_t>{};
+static constexpr auto final_state = State<detail::final_t>{};
+static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
 
 //==========================================================================
 
