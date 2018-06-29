@@ -170,9 +170,12 @@ struct UniqueTypesTuple<std::tuple<_T>>
 template<typename _T0, typename... _T>
 struct UniqueTypesTuple<std::tuple<_T0, _T...>>
 {
+private:
+  using rest_t = UniqueTypesTuple_t<std::tuple<_T...>>;
+public:
   using type = typename std::conditional_t<HasType<_T0, std::tuple<_T...>>::value,
-                  UniqueTypesTuple_t<std::tuple<_T...>>,
-                  PrependType_t<_T0, UniqueTypesTuple_t<std::tuple<_T...>>>
+                  rest_t,
+                  PrependType_t<_T0, rest_t>
                 >;
 };
 
@@ -206,7 +209,7 @@ private:
   using rest_t = typename Filter<_Filter, std::tuple<_Ts...>>::type;
 public:
   using type = std::conditional_t<_Filter<_T0>::value,
-                        ConcatTuples_t<std::tuple<_T0>, rest_t>,
+                        PrependType_t<_T0, rest_t>,
                         rest_t>;
 };
 template<template <typename...> typename _Filter, typename _Tuple>
