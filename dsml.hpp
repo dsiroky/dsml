@@ -346,7 +346,7 @@ struct ProcessSingleEventImpl;
 template<typename _AllStates, typename _Deps, typename _StateNum>
 struct ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<>>
 {
-  bool operator()(const std::tuple<>&, const _StateNum, _StateNum&, _Deps&) const
+  bool operator()(const std::tuple<>&, _StateNum&, _Deps&) const
   {
     return false;
   }
@@ -354,37 +354,42 @@ struct ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<>>
 template<typename _AllStates, typename _Deps, typename _StateNum, typename _Row, typename... _Rows>
 struct ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<_Row, _Rows...>>
 {
-  bool operator()(const std::tuple<_Row, _Rows...>& rows,
-                  const _StateNum current_state, _StateNum& new_state,
+  bool operator()(const std::tuple<_Row, _Rows...>& rows, _StateNum& state,
                   _Deps& deps) const
   {
     using row_t = std::remove_const_t<std::remove_reference_t<_Row>>;
     const auto& row = std::get<_Row>(rows);
     const auto& guard = row.m_event_bundle.m_guard;
     bool processed{false};
-    if ((state_number_v<typename row_t::src_state_t, _AllStates> == current_state)
+    constexpr auto source_state =
+                        state_number_v<typename row_t::src_state_t, _AllStates>;
+    if ((source_state == state)
         and
         call(guard, deps))
     {
       const auto& action = row.m_event_bundle.m_action;
       call(action, deps);
-      new_state = state_number_v<typename row_t::dst_state_t, _AllStates>;
+      constexpr auto destination_state =
+                        state_number_v<typename row_t::dst_state_t, _AllStates>;
+      if (source_state != destination_state)
+      {
+        state = destination_state;
+      }
       processed = true;
     }
     return processed or
           ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, std::tuple<_Rows...>>{}(
                             std::tuple<_Rows...>{std::get<_Rows>(rows)...},
-                            current_state, new_state, deps);
+                            state, deps);
   }
 };
 
 template<typename _AllStates, typename _FilteredRows, typename _StateNum, typename _Deps>
 bool process_single_event(const _AllStates&, const _FilteredRows& filtered_rows,
-                          const _StateNum current_state, _StateNum& new_state,
-                          _Deps& deps)
+                          _StateNum& state, _Deps& deps)
 {
   return ProcessSingleEventImpl<_AllStates, _Deps, _StateNum, _FilteredRows>{}(
-                                  filtered_rows, current_state, new_state, deps);
+                                  filtered_rows, state, deps);
 }
 
 //==========================================================================
@@ -795,7 +800,7 @@ private:
     // only for re-casting
     const auto processed = detail::process_single_event(
                               typename transition_table_t::states_t{}, rows,
-                              m_state_number, m_state_number, m_deps);
+                              m_state_number, m_deps);
     return processed;
   }
 
