@@ -796,7 +796,8 @@ private:
   template<typename _ET>
   bool process_single_event(const Event<_ET>& evt)
   {
-    const auto rows = detail::rows_with_event(m_table.m_rows, evt);
+    const auto table = detail::expand_table<_MachineDecl>();
+    const auto rows = detail::rows_with_event(table.m_rows, evt);
     // only for re-casting
     const auto processed = detail::process_single_event(
                               typename transition_table_t::states_t{}, rows,
@@ -813,7 +814,6 @@ private:
   //--------------------------------
 
   std::tuple<_Deps&...> m_deps;
-  const transition_table_t m_table = detail::expand_table<_MachineDecl>();
   /// actual state machine state
   state_number_t m_state_number{detail::TypeIndex<
                                     State<detail::initial_t>,
