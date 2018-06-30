@@ -333,8 +333,17 @@ static const auto always_true_guard = [](){ return true; };
 static const auto no_action = [](){};
 
 struct anonymous_t {};
+struct on_entry_t {};
 struct initial_t {};
 struct final_t {};
+
+//--------------------------------------------------------------------------
+
+template<typename _T>
+struct IsStateActionEvent
+{
+  static constexpr auto value = std::is_same<_T, Event<on_entry_t>>::value;
+};
 
 //--------------------------------------------------------------------------
 
@@ -704,7 +713,13 @@ struct State
   template<typename _E, typename _GuardF, typename _ActionF>
   auto operator+(const EventBundle<_E, _GuardF, _ActionF>& eb) const noexcept
   {
-    return StateTransition<State<base_t>, EventBundle<_E, _GuardF, _ActionF>>{eb};
+    using tag_t = std::conditional_t<
+                detail::IsStateActionEvent<
+                                  typename std::decay_t<decltype(eb)>::event_t
+                                >::value,
+                detail::TypeHolder<state_action_t>,
+                detail::TypeHolder<transition_action_t>>;
+    return combine_event_bundle<_E, _GuardF, _ActionF>(eb, tag_t{});
   }
 
   template<typename _F>
@@ -723,6 +738,25 @@ struct State
   auto operator=(const State<_DstS>& dst) const noexcept
   {
     return *this + Event<detail::anonymous_t>{} = dst;
+  }
+
+private:
+  struct transition_action_t {};
+  struct state_action_t {};
+
+  template<typename _E, typename _GuardF, typename _ActionF>
+  auto combine_event_bundle(const EventBundle<_E, _GuardF, _ActionF>& eb,
+                            detail::TypeHolder<transition_action_t>) const noexcept
+  {
+    return StateTransition<State<base_t>, EventBundle<_E, _GuardF, _ActionF>>{eb};
+  }
+
+  template<typename _E, typename _GuardF, typename _ActionF>
+  auto combine_event_bundle(const EventBundle<_E, _GuardF, _ActionF>& eb,
+                            detail::TypeHolder<state_action_t>) const noexcept
+  {
+    // make a loop to itself to have unified table rows
+    return StateTransition<State<base_t>, EventBundle<_E, _GuardF, _ActionF>>{eb} = State{};
   }
 };
 
@@ -892,6 +926,7 @@ private:
 static constexpr auto initial_state = State<detail::initial_t>{};
 static constexpr auto final_state = State<detail::final_t>{};
 static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
+static constexpr auto on_entry = Event<detail::on_entry_t>{};
 
 //==========================================================================
 
