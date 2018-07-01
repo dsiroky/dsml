@@ -479,7 +479,7 @@ struct ProcessSingleEventImpl;
 template<typename _AllStates, typename _AllRows, typename _Deps, typename _StateNum>
 struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum, std::tuple<>>
 {
-  bool operator()(const _AllRows&, const std::tuple<>&, _StateNum&, _Deps&) const
+  bool operator()(const _AllRows&, const std::tuple<>&, _StateNum&, _Deps&) const noexcept
   {
     return false;
   }
@@ -576,6 +576,7 @@ struct WrapState
   using type = State<std::pair<_Wrap, typename _State::base_t>>;
 };
 
+/// WrapState<WrapState<WrapState<...>>>
 template<typename...>
 struct WrapStateInLayers;
 template<typename _State, typename _W0>

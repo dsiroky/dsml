@@ -3,7 +3,7 @@
 ## TODO
 - logging
 - move private stuff to detail
-- optimize
+- compile time optimizations
 - comments
 - automatic dependencies like boost::sml
 - documentation, examples
