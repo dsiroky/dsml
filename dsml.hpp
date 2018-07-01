@@ -57,7 +57,7 @@ struct CString<char, _Chrs...> {
 };
 
 //--------------------------------------------------------------------------
-//
+
 template <class, size_t N, size_t... Ns>
 auto get_type_name_impl(const char *ptr, std::index_sequence<Ns...>) {
   static const char str[] = {ptr[N + Ns]..., 0};
@@ -65,12 +65,12 @@ auto get_type_name_impl(const char *ptr, std::index_sequence<Ns...>) {
 }
 template <typename T>
 auto get_type_name() {
-#if defined(__GNUC__)
-  using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 45 - 2>;
-  return detail::get_type_name_impl<T, 45>(__PRETTY_FUNCTION__, seq_t{});
-#elif defined(__clang__)
+#if defined(__clang__)
   using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 40 - 2>;
   return detail::get_type_name_impl<T, 40>(__PRETTY_FUNCTION__, seq_t{});
+#elif defined(__GNUC__)
+  using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 45 - 2>;
+  return detail::get_type_name_impl<T, 45>(__PRETTY_FUNCTION__, seq_t{});
 #endif
 }
 

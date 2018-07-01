@@ -196,7 +196,7 @@ TEST(GetTypeName, ReturnsString)
 {
   EXPECT_STREQ("int", dsml::detail::get_type_name<int>());
   EXPECT_STREQ("float", dsml::detail::get_type_name<float>());
-  EXPECT_STREQ("std::tuple<char*>", dsml::detail::get_type_name<std::tuple<char*>>());
+  EXPECT_STREQ("std::tuple<char>", dsml::detail::get_type_name<std::tuple<char>>());
 }
 
 //==========================================================================
@@ -748,7 +748,7 @@ TEST(Sm, TransitionGuardAndAction)
   dsml::Sm<MyMachine, V> sm{calls};
 
   sm.process_event("e1"_e);
-  EXPECT_EQ(std::vector<int>{{2}}, calls);
+  EXPECT_EQ(std::vector<int>{2}, calls);
   EXPECT_TRUE(sm.is("C"_s));
 }
 
@@ -771,7 +771,7 @@ TEST(Sm, AnonymousTransitionGuardAndAction)
   dsml::Sm<MyMachine, V> sm{calls};
 
   sm.process_event("e1"_e);
-  EXPECT_EQ(std::vector<int>{{2}}, calls);
+  EXPECT_EQ(std::vector<int>{2}, calls);
   EXPECT_TRUE(sm.is("C"_s));
 }
 
