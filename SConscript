@@ -16,7 +16,7 @@ env.AppendUnique(
         "-fdiagnostics-color",
         ],
     CXXFLAGS=[
-        "-std=c++17",
+        "-std=c++14",
         "-fno-rtti",
         ],
     LINKFLAGS=[
@@ -48,6 +48,7 @@ env_warnings = env.Clone()
 env_warnings.AppendUnique(
     CCFLAGS=[
         "-pedantic",
+        "-Werror",
         "-Wall",
         "-Wextra",
         "-Wconversion",

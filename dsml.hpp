@@ -221,14 +221,14 @@ struct Apply<T, std::tuple<Ts...>> {
 template <template <class...> class T, class D>
 using Apply_t = typename Apply<T, D>::type;
 
-template<template <typename...> typename, typename...>
+template<template <typename...> class, typename...>
 struct Filter;
-template<template <typename...> typename _Filter>
+template<template <typename...> class _Filter>
 struct Filter<_Filter, std::tuple<>>
 {
   using type = std::tuple<>;
 };
-template<template <typename...> typename _Filter, typename _T0, typename... _Ts>
+template<template <typename...> class _Filter, typename _T0, typename... _Ts>
 struct Filter<_Filter, std::tuple<_T0, _Ts...>>
 {
 private:
@@ -238,17 +238,17 @@ public:
                         PrependType_t<_T0, rest_t>,
                         rest_t>;
 };
-template<template <typename...> typename _Filter, typename _Tuple>
+template<template <typename...> class _Filter, typename _Tuple>
 using Filter_t = typename Filter<_Filter, _Tuple>::type;
 
-template<template <typename...> typename, typename, typename>
+template<template <typename...> class, typename, typename>
 struct TupleIndexFilter;
-template<template <typename...> typename _Filter, typename _Tuple>
+template<template <typename...> class _Filter, typename _Tuple>
 struct TupleIndexFilter<_Filter, _Tuple, std::index_sequence<>>
 {
   using type = std::index_sequence<>;
 };
-template<template <typename...> typename _Filter, typename _Tuple,
+template<template <typename...> class _Filter, typename _Tuple,
           size_t _I0, size_t... _Is>
 struct TupleIndexFilter<_Filter, _Tuple, std::index_sequence<_I0, _Is...>>
 {
@@ -263,7 +263,7 @@ public:
                         PrependIndex_t<_I0, rest_t>,
                         rest_t>;
 };
-template<template <typename...> typename _Filter, typename _Tuple>
+template<template <typename...> class _Filter, typename _Tuple>
 using TupleIndexFilter_t = typename TupleIndexFilter<_Filter, _Tuple,
                 std::make_index_sequence<std::tuple_size<_Tuple>::value>>::type;
 
