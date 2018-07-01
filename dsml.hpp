@@ -7,6 +7,11 @@
 #include <tuple>
 #include <type_traits>
 
+#pragma GCC diagnostic push
+#if defined(__clang__)
+  #pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template"
+#endif
+
 //==========================================================================
 namespace dsml {
 //==========================================================================
@@ -1009,5 +1014,7 @@ auto operator""_e() {
 //==========================================================================
 } // namespace
 //==========================================================================
+
+#pragma GCC diagnostic pop
 
 #endif /* include guard */
