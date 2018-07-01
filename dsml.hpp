@@ -459,6 +459,53 @@ struct GetCurrentStateName
 };
 
 //==========================================================================
+} // namespace
+//==========================================================================
+
+/// Groups together event, guard and action as a unification for the table row.
+template<typename _Event, typename _GuardF, typename _ActionF>
+struct EventBundle
+{
+  using event_t = std::remove_cv_t<_Event>;
+  static_assert(is_event_v<event_t>, "must be event type");
+  using guard_t = _GuardF;
+  using action_t = _ActionF;
+
+  EventBundle(_GuardF gf, _ActionF af) noexcept : m_guard{gf}, m_action{af} {}
+
+  template<typename _F>
+  auto operator/(_F action) const noexcept
+  {
+    return EventBundle<_Event, _GuardF, _F>{m_guard, action};
+  }
+
+  const _GuardF m_guard{};
+  const _ActionF m_action{};
+};
+
+template<typename _T>
+struct Event
+{
+  template<typename _ActionF>
+  auto operator/(_ActionF action) const noexcept
+  {
+    return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
+                detail::always_true_guard, action
+              };
+  }
+
+  template<typename _GuardF>
+  auto operator[](_GuardF guard) const noexcept
+  {
+    return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
+                guard, detail::no_action
+              };
+  }
+};
+
+//==========================================================================
+namespace detail {
+//==========================================================================
 
 template<typename _Rows, typename _Deps>
 static void call_row_action(const _Rows& rows, _Deps& deps, std::true_type)
@@ -703,49 +750,6 @@ auto expand_table()
 
 //==========================================================================
 } // namespace
-//==========================================================================
-
-/// Groups together event, guard and action as a unification for the table row.
-template<typename _Event, typename _GuardF, typename _ActionF>
-struct EventBundle
-{
-  using event_t = std::remove_cv_t<_Event>;
-  static_assert(is_event_v<event_t>, "must be event type");
-  using guard_t = _GuardF;
-  using action_t = _ActionF;
-
-  EventBundle(_GuardF gf, _ActionF af) noexcept : m_guard{gf}, m_action{af} {}
-
-  template<typename _F>
-  auto operator/(_F action) const noexcept
-  {
-    return EventBundle<_Event, _GuardF, _F>{m_guard, action};
-  }
-
-  const _GuardF m_guard{};
-  const _ActionF m_action{};
-};
-
-template<typename _T>
-struct Event
-{
-  template<typename _ActionF>
-  auto operator/(_ActionF action) const noexcept
-  {
-    return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
-                detail::always_true_guard, action
-              };
-  }
-
-  template<typename _GuardF>
-  auto operator[](_GuardF guard) const noexcept
-  {
-    return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
-                guard, detail::no_action
-              };
-  }
-};
-
 //==========================================================================
 
 template<typename _SrcS, typename _EventBundle>
