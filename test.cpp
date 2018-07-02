@@ -196,6 +196,87 @@ TEST(TypeTraits, IsEvent)
 
 //==========================================================================
 
+void callable1() {}
+void callable1noexcept() noexcept {}
+auto callable2(double) { return std::make_tuple(4, 5.9f); }
+
+TEST(Callable, Functions)
+{
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(&callable1)>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<>,
+                dsml::detail::Callable<decltype(&callable1)>::args_t>::value));
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(&callable1noexcept)>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<>,
+                dsml::detail::Callable<decltype(&callable1noexcept)>::args_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int, float>,
+                dsml::detail::Callable<decltype(&callable2)>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<double>,
+                dsml::detail::Callable<decltype(&callable2)>::args_t>::value));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Callable, CallOperators)
+{
+  struct C { void operator()(int) {} };
+  struct CConst { void operator()(int) const {} };
+  struct CVolatile { void operator()(int) volatile {} };
+  struct CConstVolatile { void operator()(int) const volatile {} };
+  struct CNoexcept { void operator()(int) noexcept {} };
+  struct CConstNoexcept { void operator()(int) const noexcept {} };
+
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(C{})>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int>,
+                dsml::detail::Callable<decltype(C{})>::args_t>::value));
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(CConst{})>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int>,
+                dsml::detail::Callable<decltype(CConst{})>::args_t>::value));
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(CVolatile{})>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int>,
+                dsml::detail::Callable<decltype(CVolatile{})>::args_t>::value));
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(CConstVolatile{})>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int>,
+                dsml::detail::Callable<decltype(CConstVolatile{})>::args_t>::value));
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(CNoexcept{})>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int>,
+                dsml::detail::Callable<decltype(CNoexcept{})>::args_t>::value));
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(CConstNoexcept{})>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int>,
+                dsml::detail::Callable<decltype(CConstNoexcept{})>::args_t>::value));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Callable, Lambdas)
+{
+  auto l = [](){};
+  auto l_noexcept = []() noexcept {};
+  auto lx = [](int, char&) { return 3.5f; };
+
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(l)>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<>,
+                dsml::detail::Callable<decltype(l)>::args_t>::value));
+  EXPECT_TRUE((std::is_same<void,
+                dsml::detail::Callable<decltype(l_noexcept)>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<>,
+                dsml::detail::Callable<decltype(l_noexcept)>::args_t>::value));
+  EXPECT_TRUE((std::is_same<float,
+                dsml::detail::Callable<decltype(lx)>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int, char&>,
+                dsml::detail::Callable<decltype(lx)>::args_t>::value));
+}
+
+//==========================================================================
+
 TEST(GetTypeName, ReturnsString)
 {
   EXPECT_STREQ("int", dsml::detail::get_type_name<int>());

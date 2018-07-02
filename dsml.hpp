@@ -304,20 +304,21 @@ struct CallableImpl<_Ret(_Args...)>
   using ret_t = _Ret;
   using args_t = std::tuple<_Args...>;
 };
+template<typename _Ret, typename... _Args>
+struct CallableImpl<_Ret(*)(_Args...)> : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...)> : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
 struct CallableImpl<_Ret(_T::*)(_Args...) const> : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...) noexcept> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...) volatile> : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) const volatile> : CallableImpl<_Ret(_Args...)> {};
 template<typename _T>
 struct CallableImpl : CallableImpl<decltype(&_T::operator())> {};
 
 template<typename _F>
-struct Callable : CallableImpl<_F>
-{
-  Callable(_F f) : m_f{std::move(f)} {}
-private:
-  _F m_f;
-};
+struct Callable : CallableImpl<_F> {};
 
 //--------------------------------------------------------------------------
 
