@@ -705,6 +705,141 @@ TEST(Sm, TransitionGuard)
 
 //--------------------------------------------------------------------------
 
+TEST(Sm, TransitionGuardWithNotOperator)
+{
+  bool flag{true};
+
+  using namespace dsml::literals;
+  using namespace dsml::guard_operators;
+
+  struct MyMachine { auto operator()() const noexcept {
+          auto guard = [](bool& flag_){ return flag_; };
+          return dsml::make_transition_table(
+                          dsml::initial_state + "e1"_e [ not guard ] = "A"_s
+                      );
+  } };
+
+  dsml::Sm<MyMachine, bool> sm{flag};
+
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is(dsml::initial_state));
+  flag = false;
+  sm.process_event("e1"_e);
+  EXPECT_TRUE(sm.is("A"_s));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, TransitionGuardWithAndOperator)
+{
+  struct Data
+  {
+    bool flag1{false};
+    bool flag2{false};
+  };
+
+  using namespace dsml::literals;
+  using namespace dsml::guard_operators;
+
+  struct MyMachine { auto operator()() const noexcept {
+          auto guard1 = [](Data& d){ return d.flag1; };
+          auto guard2 = [](Data& d){ return d.flag2; };
+          return dsml::make_transition_table(
+                      dsml::initial_state + "e1"_e [ guard1 and guard2 ] = "A"_s
+                  );
+  } };
+
+  {
+    Data data{};
+    data.flag1 = false;
+    data.flag2 = false;
+    dsml::Sm<MyMachine, Data> sm{data};
+    sm.process_event("e1"_e);
+    EXPECT_TRUE(sm.is(dsml::initial_state));
+  }
+  {
+    Data data{};
+    dsml::Sm<MyMachine, Data> sm{data};
+    data.flag1 = true;
+    data.flag2 = false;
+    sm.process_event("e1"_e);
+    EXPECT_TRUE(sm.is(dsml::initial_state));
+  }
+  {
+    Data data{};
+    dsml::Sm<MyMachine, Data> sm{data};
+    data.flag1 = false;
+    data.flag2 = true;
+    sm.process_event("e1"_e);
+    EXPECT_TRUE(sm.is(dsml::initial_state));
+  }
+  {
+    Data data{};
+    dsml::Sm<MyMachine, Data> sm{data};
+    data.flag1 = true;
+    data.flag2 = true;
+    sm.process_event("e1"_e);
+    EXPECT_TRUE(sm.is("A"_s));
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, TransitionGuardWithOrOperator)
+{
+  struct Data
+  {
+    bool flag1{false};
+    bool flag2{false};
+  };
+
+  using namespace dsml::literals;
+  using namespace dsml::guard_operators;
+
+  struct MyMachine { auto operator()() const noexcept {
+          auto guard1 = [](Data& d){ return d.flag1; };
+          auto guard2 = [](Data& d){ return d.flag2; };
+          return dsml::make_transition_table(
+                      dsml::initial_state + "e1"_e [ guard1 or guard2 ] = "A"_s
+                  );
+  } };
+
+  {
+    Data data{};
+    data.flag1 = false;
+    data.flag2 = false;
+    dsml::Sm<MyMachine, Data> sm{data};
+    sm.process_event("e1"_e);
+    EXPECT_TRUE(sm.is(dsml::initial_state));
+  }
+  {
+    Data data{};
+    dsml::Sm<MyMachine, Data> sm{data};
+    data.flag1 = true;
+    data.flag2 = false;
+    sm.process_event("e1"_e);
+    EXPECT_TRUE(sm.is("A"_s));
+  }
+  {
+    Data data{};
+    dsml::Sm<MyMachine, Data> sm{data};
+    data.flag1 = false;
+    data.flag2 = true;
+    sm.process_event("e1"_e);
+    EXPECT_TRUE(sm.is("A"_s));
+  }
+  {
+    Data data{};
+    dsml::Sm<MyMachine, Data> sm{data};
+    data.flag1 = true;
+    data.flag2 = true;
+    sm.process_event("e1"_e);
+    EXPECT_TRUE(sm.is("A"_s));
+  }
+}
+
+//--------------------------------------------------------------------------
+
 TEST(Sm, AnonymousTransitionGuard)
 {
   struct Data

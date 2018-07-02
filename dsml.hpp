@@ -305,16 +305,12 @@ struct CallableImpl<_Ret(_Args...)>
   using args_t = std::tuple<_Args...>;
 };
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...) const>
-{
-  using ret_t = _Ret;
-  using args_t = std::tuple<_Args...>;
-};
+struct CallableImpl<_Ret(_T::*)(_Args...) const> : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) noexcept> : CallableImpl<_Ret(_Args...)> {};
 template<typename _T>
-struct CallableImpl : CallableImpl<decltype(&_T::operator())>
-{ };
+struct CallableImpl : CallableImpl<decltype(&_T::operator())> {};
 
-/// Get callable arguments type list without CV qualifiers and references.
 template<typename _F>
 struct Callable : CallableImpl<_F>
 {
@@ -325,8 +321,18 @@ private:
 
 //--------------------------------------------------------------------------
 
+template<typename T, typename = void>
+struct IsCallable : std::is_function<T> { };
+
+template<typename T>
+struct IsCallable<T, typename std::enable_if<
+    std::is_same<decltype(void(&T::operator())), void>::value
+    >::type> : std::true_type { };
+
+//--------------------------------------------------------------------------
+
 template<typename _F, typename _Deps, size_t... _Is>
-auto _call(_F func, _Deps& deps, std::index_sequence<_Is...>)
+auto call_impl(_F func, _Deps& deps, std::index_sequence<_Is...>)
 {
   return func(std::get<_Is>(deps)...);
 }
@@ -336,8 +342,106 @@ auto call(_F func, _Deps& deps)
 {
   using args_t = typename Callable<_F>::args_t;
   using args_indices_t = std::make_index_sequence<std::tuple_size<args_t>::value>;
-  return _call(func, deps, args_indices_t{});
+  return call_impl(func, deps, args_indices_t{});
 }
+
+//--------------------------------------------------------------------------
+
+template<typename...>
+struct OpNotImpl;
+template<typename _F, typename... Args>
+struct OpNotImpl<_F, std::tuple<Args...>>
+{
+  OpNotImpl(_F f) : m_f{std::move(f)} {}
+
+  bool operator()(Args&&... args) const
+  {
+    return not m_f(std::forward<Args>(args)...);
+  }
+
+private:
+  _F m_f;
+};
+
+template<typename _F>
+struct OpNot : OpNotImpl<_F, typename Callable<_F>::args_t>
+{
+  static_assert(std::is_same<typename detail::Callable<_F>::ret_t, bool>::value,
+                "operand must return bool");
+  using super = OpNotImpl<_F, typename Callable<_F>::args_t>;
+  using super::super;
+};
+
+//--------------------------------------------------------------------------
+
+struct ExprAnd
+{
+  static constexpr bool eval(const bool v1, const bool v2) noexcept
+  {
+    return v1 and v2;
+  }
+};
+
+struct ExprOr
+{
+  static constexpr bool eval(const bool v1, const bool v2) noexcept
+  {
+    return v1 or v2;
+  }
+};
+
+//--------------------------------------------------------------------------
+
+template<typename...>
+struct OpBinaryImpl;
+template<typename _Expr, typename _F1, typename _F2, typename... Args1, typename... Args2>
+struct OpBinaryImpl<_Expr, _F1, std::tuple<Args1...>, _F2, std::tuple<Args2...>>
+{
+  static_assert(std::is_same<typename detail::Callable<_F1>::ret_t, bool>::value,
+                "operand must return bool");
+  static_assert(std::is_same<typename detail::Callable<_F2>::ret_t, bool>::value,
+                "operand must return bool");
+
+  OpBinaryImpl(_F1 f1, _F2 f2) : m_f1{std::move(f1)}, m_f2{std::move(f2)} {}
+
+  bool operator()(Args1&&... args) const
+  {
+    auto tup = std::forward_as_tuple(args...);
+    return _Expr::eval(call(m_f1, tup), call(m_f2, tup));
+  }
+
+private:
+  _F1 m_f1;
+  _F2 m_f2;
+};
+
+//--------------------------------------------------------------------------
+
+template<typename _F1, typename _F2>
+struct OpAnd : OpBinaryImpl<ExprAnd,
+                          _F1, typename Callable<_F1>::args_t,
+                          _F2, typename Callable<_F2>::args_t>
+{
+public:
+  using super = OpBinaryImpl<ExprAnd,
+                              _F1, typename Callable<_F1>::args_t,
+                              _F2, typename Callable<_F2>::args_t>;
+  using super::super;
+};
+
+//--------------------------------------------------------------------------
+
+template<typename _F1, typename _F2>
+struct OpOr : OpBinaryImpl<ExprOr,
+                          _F1, typename Callable<_F1>::args_t,
+                          _F2, typename Callable<_F2>::args_t>
+{
+public:
+  using super = OpBinaryImpl<ExprOr,
+                              _F1, typename Callable<_F1>::args_t,
+                              _F2, typename Callable<_F2>::args_t>;
+  using super::super;
+};
 
 //--------------------------------------------------------------------------
 
@@ -1008,6 +1112,30 @@ auto operator""_s() {
 template<typename T, T... Chrs>
 auto operator""_e() {
   return Event<detail::CString<T, Chrs...>>{};
+}
+
+}
+
+//==========================================================================
+
+namespace guard_operators {
+
+template<typename _F>
+auto operator!(const _F& func)
+{
+  return detail::OpNot<_F>{func};
+}
+
+template<typename _F1, typename _F2>
+auto operator&&(const _F1& func1, const _F2& func2)
+{
+  return detail::OpAnd<_F1, _F2>{func1, func2};
+}
+
+template<typename _F1, typename _F2>
+auto operator||(const _F1& func1, const _F2& func2)
+{
+  return detail::OpOr<_F1, _F2>{func1, func2};
 }
 
 }

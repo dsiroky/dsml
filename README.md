@@ -7,7 +7,8 @@ Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml). Mo
 ## Main goals
 
 * Header only.
-* Runtime speed - don't pay for what you don't need.
+* Minimal resulting binary footprint - don't pay for what you don't need.
+* Speed.
 * Clear semantics.
 * Well tested.
 
@@ -71,6 +72,17 @@ auto guard = [](){ return true; };
 ```cpp
 // with event
 "A"_s + "evt1"_e [ guard ] = "B"_s
+```
+
+#### Combined
+You can combine guards into a logical expression:
+```cpp
+// add this into your scope to enable guard logical expressions
+using dsml::guard_operators;
+```
+```cpp
+// with event
+"A"_s + "evt1"_e [ guard1 && guard2 || !guard3 ] = "B"_s
 ```
 
 ### Actions
@@ -174,7 +186,6 @@ struct Composite
 ```
 
 ## TODO
-- operators for guards
 - more static asserts (especially for actions and guards)
 - logging
 - move private stuff to detail
