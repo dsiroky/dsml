@@ -460,13 +460,33 @@ struct CallableImpl<_Ret(_Args...)>
 template<typename _Ret, typename... _Args>
 struct CallableImpl<_Ret(*)(_Args...)> : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...)> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...)>
+  : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...) const> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...) const>
+  : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...) volatile> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...) volatile>
+  : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...) const volatile> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...) const volatile>
+  : CallableImpl<_Ret(_Args...)> {};
+#if __cplusplus > 201402L && __cpp_noexcept_function_type >= 201510
+template<typename _Ret, typename... _Args>
+struct CallableImpl<_Ret(*)(_Args...) noexcept> : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) noexcept>
+  : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) const noexcept>
+  : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) volatile noexcept>
+  : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) const volatile noexcept>
+  : CallableImpl<_Ret(_Args...)> {};
+#endif
 template<typename _T>
 struct CallableImpl : CallableImpl<decltype(&_T::operator())> {};
 
