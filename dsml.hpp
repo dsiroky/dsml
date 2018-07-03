@@ -14,9 +14,13 @@
 #include <type_traits>
 #include <utility>
 
-#pragma GCC diagnostic push
-#if defined(__clang__)
-  #pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template"
+#ifdef _MSC_VER
+  #pragma warning(push)
+#else
+  #pragma GCC diagnostic push
+  #if defined(__clang__)
+    #pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template"
+  #endif
 #endif
 
 //==========================================================================
@@ -630,7 +634,7 @@ struct ExprAnd
 {
   static constexpr bool eval(const bool v1, const bool v2) noexcept
   {
-    return v1 and v2;
+    return v1 && v2;
   }
 };
 
@@ -638,7 +642,7 @@ struct ExprOr
 {
   static constexpr bool eval(const bool v1, const bool v2) noexcept
   {
-    return v1 or v2;
+    return v1 || v2;
   }
 };
 
@@ -708,7 +712,7 @@ struct final_t { static auto c_str() noexcept { return "final"; } };
 template<typename _T>
 struct IsStateActionEvent
 {
-  static constexpr auto value = std::is_same<_T, Event<on_entry_t>>::value or
+  static constexpr auto value = std::is_same<_T, Event<on_entry_t>>::value ||
                                 std::is_same<_T, Event<on_exit_t>>::value;
 };
 
@@ -914,7 +918,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
     bool processed{false};
     constexpr auto source_state =
                         state_number_v<typename row_t::src_state_t, _AllStates>;
-    if ((source_state == state) and call(guard, deps))
+    if ((source_state == state) && call(guard, deps))
     {
       const auto allowed = call(guard, deps);
       detail::NotifyObserver<_Deps>::template guard<_Deps, decltype(guard)>
@@ -954,7 +958,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
       }
     }
 
-    return processed or
+    return processed ||
           ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                                 std::tuple<_Rows...>>{}(
                         all_rows, std::tuple<_Rows...>{std::get<_Rows>(rows)...},
@@ -1413,14 +1417,14 @@ static constexpr auto on_exit = Event<detail::on_exit_t>{};
 
 namespace literals {
 
-template<typename T, T... Chrs>
+template<char... Chrs>
 auto operator""_s() {
-  return State<detail::CString<T, Chrs...>>{};
+  return State<detail::CString<char, Chrs...>>{};
 }
 
-template<typename T, T... Chrs>
+template<char... Chrs>
 auto operator""_e() {
-  return Event<detail::CString<T, Chrs...>>{};
+  return Event<detail::CString<char, Chrs...>>{};
 }
 
 }
@@ -1453,6 +1457,10 @@ auto operator||(_F1 func1, _F2 func2)
 } // namespace
 //==========================================================================
 
-#pragma GCC diagnostic pop
+#ifdef _MSC_VER
+  #pragma warning(pop)
+#else
+  #pragma GCC diagnostic pop
+#endif
 
 #endif /* include guard */
