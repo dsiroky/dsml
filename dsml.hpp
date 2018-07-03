@@ -1437,6 +1437,7 @@ static constexpr auto on_exit = Event<detail::on_exit_t>{};
 
 namespace literals {
 
+#ifdef _MSC_VER
 template<char... Chrs>
 auto operator""_s() {
   return State<detail::CString<char, Chrs...>>{};
@@ -1446,6 +1447,17 @@ template<char... Chrs>
 auto operator""_e() {
   return Event<detail::CString<char, Chrs...>>{};
 }
+#else
+template<typename _T, _T... Chrs>
+auto operator""_s() {
+  return State<detail::CString<char, Chrs...>>{};
+}
+
+template<typename _T, _T... Chrs>
+auto operator""_e() {
+  return Event<detail::CString<char, Chrs...>>{};
+}
+#endif
 
 }
 
