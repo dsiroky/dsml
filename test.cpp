@@ -1,8 +1,14 @@
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated"
-#pragma GCC diagnostic ignored "-Wconversion"
+#ifndef _MSC_VER
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated"
+  #pragma GCC diagnostic ignored "-Wconversion"
+#endif
+
 #include "gtest/gtest.h"
-#pragma GCC diagnostic pop
+
+#ifndef _MSC_VER
+  #pragma GCC diagnostic pop
+#endif
 
 #include "dsml.hpp"
 
