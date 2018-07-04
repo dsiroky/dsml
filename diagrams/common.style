@@ -1,0 +1,7 @@
+graph [fontname = "mono"];
+node [fontname = "mono"];
+edge [fontname = "mono"];
+compound=true;
+node [shape=Mrecord];
+rankdir="LR";
+resolution=65;

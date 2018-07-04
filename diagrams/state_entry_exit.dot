@@ -1,0 +1,9 @@
+digraph {
+
+include(common.style)
+
+A [label="A|entry / action\nexit / action"];
+
+A
+
+}

@@ -1,0 +1,3 @@
+for fn in Glob("*.dot"):
+    Command('${SOURCE.filebase}.png', fn,
+            "m4 $SOURCE > ${SOURCE}.x && dot -Tpng -o $TARGET ${SOURCE}.x ; rm ${SOURCE}.x")

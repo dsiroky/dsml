@@ -21,10 +21,15 @@ Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml). Mo
 
 ### Hello world
 
+![diagram](diagrams/hello_world.png)
+
 ```cpp
 #include <dsml.hpp>
 
 using namespace dsml::literals;
+
+const auto guard = [](){ return true; };
+const auto action = [](){ do_something(); };
 
 struct MyMachine
 {
@@ -33,8 +38,10 @@ struct MyMachine
     return dsml::make_transition_table(
           dsml::initial_state + "evt1"_e = "A"_s
         , "A"_s + "evt2"_e = "B"_s
-        , "A"_s + "evt3"_e = "C"_s
-        , "B"_s + "evt4"_e = "C"_s
+        , "A"_s + "evt3"_e [ guard ] = "C"_s
+        , "B"_s + "evt4"_e / action = "C"_s
+        , "B"_s + "evtx"_e = "B"_s
+        , "C"_s = "D"_s
       );
   }
 };
@@ -49,11 +56,13 @@ int main()
 
 ### Transitions
 
+![diagram](diagrams/transition_anonymous.png)
 ```cpp
 // anonymous
 "A"_s = "B"_s
 ```
 
+![diagram](diagrams/transition_with_event.png)
 ```cpp
 // with event
 "A"_s + "evt1"_e = "B"_s
@@ -62,12 +71,14 @@ int main()
 ### Guards
 
 ```cpp
-auto guard = [](){ return true; };
+const auto guard = [](){ return true; };
 ```
+![diagram](diagrams/guard_anonymous.png)
 ```cpp
 // anonymous transition
 "A"_s [ guard ] = "B"_s
 ```
+![diagram](diagrams/guard_event.png)
 ```cpp
 // with event
 "A"_s + "evt1"_e [ guard ] = "B"_s
@@ -79,6 +90,7 @@ You can combine guards into a logical expression:
 // add this into your scope to enable guard logical expressions
 using dsml::guard_operators;
 ```
+![diagram](diagrams/guard_combined.png)
 ```cpp
 // with event
 "A"_s + "evt1"_e [ guard1 && guard2 || !guard3 ] = "B"_s
@@ -87,12 +99,14 @@ using dsml::guard_operators;
 ### Actions
 
 ```cpp
-auto action = [](){ do_something(); };
+const auto action = [](){ do_something(); };
 ```
+![diagram](diagrams/action_anonymous.png)
 ```cpp
 // anonymous transition
 "A"_s / action = "B"_s
 ```
+![diagram](diagrams/action_event.png)
 ```cpp
 // with event
 "A"_s + "evt1"_e / action = "B"_s
@@ -101,8 +115,9 @@ auto action = [](){ do_something(); };
 ### State entry/exit actions
 
 ```cpp
-auto action = [](){ do_something(); };
+const auto action = [](){ do_something(); };
 ```
+![diagram](diagrams/state_entry_exit.png)
 ```cpp
 "A"_s + dsml::on_entry / action,
 "A"_s + dsml::on_exit / action
@@ -111,13 +126,15 @@ auto action = [](){ do_something(); };
 ### Guards and actions together
 
 ```cpp
-auto guard = [](){ return true; };
-auto action = [](){ do_something(); };
+const auto guard = [](){ return true; };
+const auto action = [](){ do_something(); };
 ```
+![diagram](diagrams/guard_action_anonymous.png)
 ```cpp
 // anonymous transition
 "A"_s [ guard ] / action = "B"_s
 ```
+![diagram](diagrams/guard_action_event.png)
 ```cpp
 // with event
 "A"_s + "evt1"_e [ guard ] / action = "B"_s
@@ -135,8 +152,8 @@ struct Data
   int x{};
 };
 
-auto guard = [](Data& data){ return data.x <= 5; };
-auto action = [](Data& data){ data.x += 2; };
+const auto guard = [](Data& data){ return data.x <= 5; };
+const auto action = [](Data& data){ data.x += 2; };
 
 struct MyMachine
 {
@@ -159,6 +176,7 @@ void func()
 
 ### Composite state machines
 
+![diagram](diagrams/composite.png)
 ```cpp
 struct OtherMachine
 {
@@ -186,7 +204,6 @@ struct CompositeMachine
 ```
 
 ## TODO
-- diagrams for examples
 - `unexpected_event`
 - more static asserts (especially for actions and guards)
 - logging

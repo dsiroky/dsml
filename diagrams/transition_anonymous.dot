@@ -1,0 +1,7 @@
+digraph {
+
+include(common.style)
+
+A -> B;
+
+}
