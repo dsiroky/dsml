@@ -31,7 +31,7 @@ struct MyMachine
   auto operator()() const noexcept
   {
     return dsml::make_transition_table(
-        dsml::initial_state + "evt1"_e = "A"_s
+          dsml::initial_state + "evt1"_e = "A"_s
         , "A"_s + "evt2"_e = "B"_s
         , "A"_s + "evt3"_e = "C"_s
         , "B"_s + "evt4"_e = "C"_s
@@ -41,7 +41,6 @@ struct MyMachine
 
 int main()
 {
-
   dsml::Sm<MyMachine> sm{};
   sm.process_event("evt1"_e);
   return sm.is("A"_s);
@@ -143,7 +142,7 @@ struct MyMachine
   auto operator()() const noexcept
   {
     return dsml::make_transition_table(
-        dsml::initial_state + "evt1"_e [ guard ] / action = "A"_s
+          dsml::initial_state + "evt1"_e [ guard ] / action = "A"_s
         , dsml::initial_state + "evt1"_e [ inv_guard ] = "B"_s
       );
   }
@@ -165,7 +164,7 @@ struct Sub
   auto operator()() const noexcept
   {
     return dsml::make_transition_table(
-        dsml::initial_state + "evt1"_e = "A"_s
+          dsml::initial_state + "evt1"_e = "A"_s
         , dsml::initial_state + "evt2"_e = "B"_s
         , "A"_s + "evt1"_e = dsml::final_state
         , "B"_s + "evt1"_e = dsml::final_state
@@ -178,7 +177,7 @@ struct Composite
   auto operator()() const noexcept
   {
     return dsml::make_transition_table(
-        dsml::initial_state + "evt1"_e = dsml::State<Sub>{}
+          dsml::initial_state + "evt1"_e = dsml::State<Sub>{}
         , dsml::State<Sub>{} + "evt2"_e = "A"_s
       );
   }
