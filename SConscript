@@ -1,9 +1,5 @@
 import os
 
-EnsurePythonVersion(2, 7)
-EnsureSConsVersion(2, 5)
-Decider("MD5-timestamp")
-
 env = Environment()
 
 env["CXX"] = os.environ.get("CXX") or env["CXX"]
@@ -33,16 +29,12 @@ if env["USE_MSVC"]:
             "/wd4503", # "decorated name length exceeded, name was truncated"
             "/wd4800", # "forcing value to bool, performance warning"
             ],
-        CXXFLAGS=["/EHa"],
+        CXXFLAGS=[
+            "/EHa",
+            ],
         CPPDEFINES=[
-            "WIN32",
-            "_CRT_SECURE_NO_WARNINGS", "_SCL_SECURE_NO_WARNINGS",
-            "_CRT_NONSTDC_NO_DEPRECATE",
-            "_WINSOCK_DEPRECATED_NO_WARNINGS",
-            "_ALLOW_KEYWORD_MACROS",
             "NOMINMAX",
             "WIN32_LEAN_AND_MEAN", # exclude rarely used MSW stuff
-            "_WIN32_WINNT=0x0601", # Win 7
 
             # gtest can't be built with MSVC2017 in the default setting.
             "GTEST_HAS_TR1_TUPLE=0",

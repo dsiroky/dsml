@@ -50,15 +50,11 @@ template<typename _T>
 struct IsState : std::false_type {};
 template<typename _T>
 struct IsState<State<_T>> : std::true_type {};
-template<typename _T>
-static constexpr auto is_state_v = IsState<_T>::value;
 
 template<typename _T>
 struct IsEvent : std::false_type {};
 template<typename _T>
 struct IsEvent<Event<_T>> : std::true_type {};
-template<typename _T>
-static constexpr auto is_event_v = IsEvent<_T>::value;
 
 //==========================================================================
 namespace detail {
@@ -96,11 +92,11 @@ struct HasStaticCStr
   using yes = char[1];
   using no = char[2];
 
-  template <class U, decltype(U::c_str())(*)() = &U::c_str>
+  template <class U>
   struct MethodTrait;
 
   template <typename U>
-  static yes& _has(MethodTrait<U>*);
+  static yes& _has(MethodTrait<decltype(&U::c_str)>*);
 
   template <typename>
   static no& _has(...);
@@ -471,7 +467,7 @@ struct CallableImpl<_Ret(_T::*)(_Args...) volatile>
 template<typename _Ret, typename _T, typename... _Args>
 struct CallableImpl<_Ret(_T::*)(_Args...) const volatile>
   : CallableImpl<_Ret(_Args...)> {};
-#if __cplusplus > 201402L && __cpp_noexcept_function_type >= 201510
+#if (__cplusplus > 201402L && __cpp_noexcept_function_type >= 201510) && !defined(_MSC_VER)
 template<typename _Ret, typename... _Args>
 struct CallableImpl<_Ret(*)(_Args...) noexcept> : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
@@ -632,7 +628,7 @@ struct OpNotImpl<_F, std::tuple<Args...>>
 
   bool operator()(Args&&... args) const
   {
-    return not m_f(std::forward<Args>(args)...);
+    return ! m_f(std::forward<Args>(args)...);
   }
 
 private:
@@ -850,7 +846,7 @@ template<typename _Event, typename _GuardF, typename _ActionF>
 struct EventBundle
 {
   using event_t = std::remove_cv_t<_Event>;
-  static_assert(is_event_v<event_t>, "must be event type");
+  static_assert(IsEvent<event_t>::value, "must be event type");
   using guard_t = _GuardF;
   using action_t = _ActionF;
 
@@ -1025,7 +1021,7 @@ struct StateWrap
 template<typename _State, typename _Wrap>
 struct WrapState
 {
-  static_assert(is_state_v<_State>, "");
+  static_assert(IsState<_State>::value, "");
   using type = State<StateWrap<_Wrap, typename _State::base_t>>;
 };
 
@@ -1239,8 +1235,8 @@ private:
 template<typename _SrcS, typename _EventBundle, typename _DstS>
 struct TableRow
 {
-  static_assert(is_state_v<_SrcS>, "");
-  static_assert(is_state_v<_DstS>, "");
+  static_assert(IsState<_SrcS>::value, "");
+  static_assert(IsState<_DstS>::value, "");
 
   using src_state_t = _SrcS;
   using dst_state_t = _DstS;
@@ -1254,7 +1250,7 @@ struct TableRow
 template<typename _SrcS, typename _EventBundle>
 struct StateTransition
 {
-  static_assert(is_state_v<_SrcS>, "");
+  static_assert(IsState<_SrcS>::value, "");
 
   StateTransition(_EventBundle event_bundle) : m_event_bundle{event_bundle} {}
 
@@ -1416,7 +1412,10 @@ auto callee(_F f)
 /// Simple type introspection without RTTI.
 template <typename T>
 auto get_type_name() {
-#if defined(__clang__)
+#if defined(_MSC_VER)
+  using seq_t = std::make_index_sequence<sizeof(__FUNCSIG__)>;
+  return detail::get_type_name_impl<T, 0>(__FUNCSIG__, seq_t{});
+#elif defined(__clang__)
   using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 32 - 2>;
   return detail::get_type_name_impl<T, 32>(__PRETTY_FUNCTION__, seq_t{});
 #elif defined(__GNUC__)
@@ -1437,17 +1436,8 @@ static constexpr auto on_exit = Event<detail::on_exit_t>{};
 
 namespace literals {
 
-#ifdef _MSC_VER
-template<char... Chrs>
-auto operator""_s() {
-  return State<detail::CString<char, Chrs...>>{};
-}
+#ifndef _MSC_VER
 
-template<char... Chrs>
-auto operator""_e() {
-  return Event<detail::CString<char, Chrs...>>{};
-}
-#else
 template<typename _T, _T... Chrs>
 auto operator""_s() {
   return State<detail::CString<char, Chrs...>>{};
@@ -1457,6 +1447,7 @@ template<typename _T, _T... Chrs>
 auto operator""_e() {
   return Event<detail::CString<char, Chrs...>>{};
 }
+
 #endif
 
 }

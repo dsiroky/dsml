@@ -205,17 +205,17 @@ TEST(TypeIndex, TypePresent_ValueIsIndex)
 
 TEST(TypeTraits, IsState)
 {
-  EXPECT_FALSE(dsml::is_state_v<int>);
-  EXPECT_TRUE(dsml::is_state_v<dsml::State<int>>);
-  EXPECT_TRUE(dsml::is_state_v<dsml::State<struct S>>);
-  EXPECT_TRUE((dsml::is_state_v<dsml::State<struct S>>));
+  EXPECT_FALSE(dsml::IsState<int>::value);
+  EXPECT_TRUE(dsml::IsState<dsml::State<int>>::value);
+  EXPECT_TRUE(dsml::IsState<dsml::State<struct S>>::value);
+  EXPECT_TRUE((dsml::IsState<dsml::State<struct S>>::value));
 }
 
 TEST(TypeTraits, IsEvent)
 {
-  EXPECT_FALSE(dsml::is_event_v<int>);
-  EXPECT_TRUE(dsml::is_event_v<dsml::Event<int>>);
-  EXPECT_TRUE(dsml::is_event_v<dsml::Event<struct S>>);
+  EXPECT_FALSE(dsml::IsEvent<int>::value);
+  EXPECT_TRUE(dsml::IsEvent<dsml::Event<int>>::value);
+  EXPECT_TRUE(dsml::IsEvent<dsml::Event<struct S>>::value);
 }
 
 //==========================================================================
@@ -321,8 +321,10 @@ TEST(HasStaticCStr, Value)
   using namespace dsml::literals;
 
   EXPECT_FALSE(dsml::detail::HasStaticCStr<int>::value);
+#ifndef _MSC_VER
   constexpr auto udl_cstr = dsml::detail::HasStaticCStr<decltype("hello"_s)>::value;
   EXPECT_TRUE(udl_cstr);
+#endif
   constexpr auto s_cstr = dsml::detail::HasStaticCStr<WithCStr>::value;
   EXPECT_TRUE(s_cstr);
 }
@@ -332,7 +334,9 @@ TEST(Stringify, ReturnsString)
   using namespace dsml::literals;
 
   EXPECT_STREQ("int", dsml::detail::c_str<int>());
+#ifndef _MSC_VER
   EXPECT_STREQ("hello", dsml::detail::c_str<decltype("hello"_s)>());
+#endif
   EXPECT_STREQ("foo", dsml::detail::c_str<WithCStr>());
 }
 
