@@ -2,7 +2,7 @@
 
 # dsml - C++ state machine library
 
-Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml). Motivation to create another SM library was to have well implemented anonymous transitions and more straightforward approach to composite state machines. *dsml* does not aim to be fully UML compliant.
+Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml). Motivation to create another SM library was to have well implemented anonymous transitions and more straightforward approach to composite state machines. *dsml* aims to be almost UML compliant.
 
 ## Main goals
 
@@ -125,6 +125,8 @@ auto action = [](){ do_something(); };
 
 ### Dependencies
 
+Useful to connect the SM with non-global logic.
+
 ```cpp
 using namespace dsml::literals;
 
@@ -134,7 +136,6 @@ struct Data
 };
 
 auto guard = [](Data& data){ return data.x <= 5; };
-auto inv_guard = [](Data& data){ return data.x > 5; };
 auto action = [](Data& data){ data.x += 2; };
 
 struct MyMachine
@@ -143,7 +144,7 @@ struct MyMachine
   {
     return dsml::make_transition_table(
           dsml::initial_state + "evt1"_e [ guard ] / action = "A"_s
-        , dsml::initial_state + "evt1"_e [ inv_guard ] = "B"_s
+        , dsml::initial_state + "evt1"_e [ ! guard ] = "B"_s
       );
   }
 };
@@ -159,7 +160,7 @@ void func()
 ### Composite state machines
 
 ```cpp
-struct Sub
+struct OtherMachine
 {
   auto operator()() const noexcept
   {
@@ -172,19 +173,21 @@ struct Sub
   }
 };
 
-struct Composite
+struct CompositeMachine
 {
   auto operator()() const noexcept
   {
     return dsml::make_transition_table(
-          dsml::initial_state + "evt1"_e = dsml::State<Sub>{}
-        , dsml::State<Sub>{} + "evt2"_e = "A"_s
+          dsml::initial_state + "evt1"_e = dsml::State<OtherMachine>{}
+        , dsml::State<OtherMachine>{} + "evt2"_e = "A"_s
       );
   }
 };
 ```
 
 ## TODO
+- diagrams for examples
+- `unexpected_event`
 - more static asserts (especially for actions and guards)
 - logging
 - move private stuff to detail
