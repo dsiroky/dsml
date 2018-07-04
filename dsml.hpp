@@ -81,6 +81,10 @@ auto get_type_name() {
 template<typename _Type>
 struct TypeHolder { using type = _Type; };
 
+// type holder for two
+template<typename _T1, typename _T2>
+struct PairTypeHolder { };
+
 //--------------------------------------------------------------------------
 
 // missing in gcc 5 STL
@@ -678,7 +682,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                               typename row_t::dst_state_t{});
         call_row_action(entry_rows, deps,
                           std::conditional_t<IsEmptyTuple<decltype(entry_rows)>::value,
-                          std::false_type, std::true_type>{});
+                                            std::false_type, std::true_type>{});
       }
       processed = true;
     }
@@ -731,7 +735,7 @@ template<typename _State, typename _Wrap>
 struct WrapState
 {
   static_assert(is_state_v<_State>, "");
-  using type = State<std::pair<_Wrap, typename _State::base_t>>;
+  using type = State<PairTypeHolder<_Wrap, typename _State::base_t>>;
 };
 
 /// WrapState<WrapState<WrapState<...>>>
