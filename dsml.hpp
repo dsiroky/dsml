@@ -336,6 +336,23 @@ struct IsCallable<T, typename std::enable_if<
 
 //--------------------------------------------------------------------------
 
+template<typename, bool>
+struct IsGuardImpl;
+template<typename _F>
+struct IsGuardImpl<_F, true>
+{
+  static constexpr bool value{std::is_same<typename Callable<_F>::ret_t, bool>::value};
+};
+template<typename _F>
+struct IsGuardImpl<_F, false>
+{
+  static constexpr bool value{false};
+};
+template<typename _F>
+struct IsGuard : IsGuardImpl<_F, IsCallable<_F>::value> {};
+
+//--------------------------------------------------------------------------
+
 template<typename _F, typename _Deps, size_t... _Is>
 auto call_impl(_F func, _Deps& deps, std::index_sequence<_Is...>)
 {
@@ -612,6 +629,8 @@ struct Event
   template<typename _GuardF>
   auto operator[](_GuardF guard) const noexcept
   {
+    static_assert(detail::IsGuard<_GuardF>::value,
+                  "guard must be callable returning bool");
     return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
                 guard, detail::no_action
               };
@@ -901,6 +920,8 @@ struct State
   template<typename _F>
   auto operator[](_F guard) const noexcept
   {
+    static_assert(detail::IsGuard<_F>::value,
+                  "guard must be callable returning bool");
     return *this + Event<detail::anonymous_t>{} [ guard ];
   }
 
