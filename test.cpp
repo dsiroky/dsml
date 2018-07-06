@@ -794,7 +794,7 @@ TEST(Sm, TransitionGuardWithNotOperator)
   using namespace dsml::guard_operators;
 
   struct MyMachine { auto operator()() const noexcept {
-          auto guard = [](bool& flag_){ return flag_; };
+          auto guard = [](const bool& flag_){ return flag_; };
           return dsml::make_transition_table(
                           dsml::initial_state + "e1"_e [ not guard ] = "A"_s
                       );
@@ -878,8 +878,8 @@ TEST(Sm, TransitionGuardWithOrOperator)
   using namespace dsml::guard_operators;
 
   struct MyMachine { auto operator()() const noexcept {
-          auto guard1 = [](Data& d){ return d.flag1; };
-          auto guard2 = [](Data& d){ return d.flag2; };
+          auto guard1 = [](const Data& d){ return d.flag1; };
+          auto guard2 = [](const Data& d){ return d.flag2; };
           return dsml::make_transition_table(
                       dsml::initial_state + "e1"_e [ guard1 or guard2 ] = "A"_s
                   );

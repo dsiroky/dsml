@@ -40,7 +40,7 @@ struct MyMachine
         , "A"_s + "evt2"_e = "B"_s
         , "A"_s + "evt3"_e [ guard ] = "C"_s
         , "B"_s + "evt4"_e / action = "C"_s
-        , "B"_s + "evtx"_e = "B"_s
+        , "B"_s + "evt1"_e = "B"_s
         , "C"_s = "D"_s
       );
   }
@@ -146,13 +146,14 @@ Useful to connect the SM with non-global logic.
 
 ```cpp
 using namespace dsml::literals;
+using namespace dsml::guard_operators;
 
 struct Data
 {
   int x{};
 };
 
-const auto guard = [](Data& data){ return data.x <= 5; };
+const auto guard = [](const Data& data){ return data.x <= 5; };
 const auto action = [](Data& data){ data.x += 2; };
 
 struct MyMachine

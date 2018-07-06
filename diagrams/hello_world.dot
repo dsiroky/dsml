@@ -7,7 +7,7 @@ initial [ shape=point height=0.4 ];
 initial -> A [ label="evt1" ];
 A -> B [ label="evt2" ];
 A -> C [ label="evt3 [guard]" ];
-B -> B [ label="evtx" ];
+B -> B [ label="evt1" ];
 B -> C [ label="evt4 / action" ];
 C -> D;
 
