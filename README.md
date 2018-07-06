@@ -206,7 +206,7 @@ struct CompositeMachine
 
 ## TODO
 - `unexpected_event`
-- more static asserts (especially for actions and guards)
+- more static asserts
 - logging
 - move private stuff to detail
 - compilation time optimizations

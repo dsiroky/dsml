@@ -353,6 +353,23 @@ struct IsGuard : IsGuardImpl<_F, IsCallable<_F>::value> {};
 
 //--------------------------------------------------------------------------
 
+template<typename, bool>
+struct IsActionImpl;
+template<typename _F>
+struct IsActionImpl<_F, true>
+{
+  static constexpr bool value{std::is_same<typename Callable<_F>::ret_t, void>::value};
+};
+template<typename _F>
+struct IsActionImpl<_F, false>
+{
+  static constexpr bool value{false};
+};
+template<typename _F>
+struct IsAction : IsActionImpl<_F, IsCallable<_F>::value> {};
+
+//--------------------------------------------------------------------------
+
 template<typename _F, typename _Deps, size_t... _Is>
 auto call_impl(_F func, _Deps& deps, std::index_sequence<_Is...>)
 {
@@ -608,6 +625,8 @@ struct EventBundle
   template<typename _F>
   auto operator/(_F action) const noexcept
   {
+    static_assert(detail::IsAction<_F>::value,
+                  "action must be callable with void return type");
     return EventBundle<_Event, _GuardF, _F>{m_guard, action};
   }
 
@@ -621,6 +640,8 @@ struct Event
   template<typename _ActionF>
   auto operator/(_ActionF action) const noexcept
   {
+    static_assert(detail::IsAction<_ActionF>::value,
+                  "action must be callable with void return type");
     return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
                 detail::always_true_guard, action
               };
@@ -928,6 +949,8 @@ struct State
   template<typename _F>
   auto operator/(_F action) const noexcept
   {
+    static_assert(detail::IsAction<_F>::value,
+                  "action must be callable with void return type");
     return *this + Event<detail::anonymous_t>{} / action;
   }
 
@@ -990,6 +1013,8 @@ struct StateTransition
   template<typename _F>
   auto operator/(_F action) const noexcept
   {
+    static_assert(detail::IsAction<_F>::value,
+                  "action must be callable with void return type");
     auto new_bundle = EventBundle<typename _EventBundle::event_t,
                                   typename _EventBundle::guard_t,
                                   _F>
