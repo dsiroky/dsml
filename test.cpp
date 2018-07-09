@@ -395,6 +395,67 @@ TEST(HasTableOperator, True)
 
 //==========================================================================
 
+TEST(Callee, NormalMethod)
+{
+  struct S
+  {
+    int f()
+    {
+      x = 5;
+      return 3;
+    }
+
+    int x{};
+  };
+
+  const auto c = dsml::callee(&S::f);
+  S s{};
+
+  EXPECT_EQ(3, c(s));
+  EXPECT_EQ(5, s.x);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Callee, ConstVolatileMethods)
+{
+  struct S
+  {
+    int f_c() const { return 3; }
+    int f_v() volatile { return 4; }
+    int f_cv() const volatile { return 5; }
+  };
+
+  S s{};
+
+  EXPECT_EQ(3, dsml::callee(&S::f_c)(s));
+  EXPECT_EQ(4, dsml::callee(&S::f_v)(s));
+  EXPECT_EQ(5, dsml::callee(&S::f_cv)(s));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Callee, ReturnTypeIsVoid)
+{
+  struct S
+  {
+    void f()
+    {
+      x = 99;
+    }
+
+    int x{};
+  };
+
+  const auto c = dsml::callee(&S::f);
+  S s{};
+
+  c(s);
+  EXPECT_EQ(99, s.x);
+}
+
+//==========================================================================
+
 TEST(Sm, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
 {
   using namespace dsml::literals;
@@ -993,6 +1054,61 @@ TEST(Sm, AnonymousTransitionGuardAndAction)
   sm.process_event("e1"_e);
   EXPECT_EQ(std::vector<int>{2}, calls);
   EXPECT_TRUE(sm.is("C"_s));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, GuardAndActionAsMethodPointer)
+{
+  struct Logic
+  {
+    bool guard() const
+    {
+      return x > 0;
+    }
+
+    void action()
+    {
+      x = 10;
+    }
+
+    int x{0};
+  };
+
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() const noexcept {
+
+    using dsml::callee;
+    using namespace dsml::guard_operators;
+
+    return dsml::make_transition_table(
+          dsml::initial_state = "A"_s
+          , "A"_s + "evt"_e
+                [ callee(&Logic::guard) ]
+                / callee(&Logic::action)
+                = "B"_s
+          , "A"_s + "evt"_e
+                [ not callee(&Logic::guard) ]
+                = "A"_s
+          , "A"_s + "evt"_e
+                [ callee(&Logic::guard) and not callee(&Logic::guard) ]
+                = "A"_s
+  ); } };
+
+  {
+    Logic logic{};
+    dsml::Sm<MyMachine, Logic> sm{logic};
+    sm.process_event("evt"_e);
+    EXPECT_TRUE(sm.is("A"_s));
+  }
+  {
+    Logic logic{};
+    dsml::Sm<MyMachine, Logic> sm{logic};
+    logic.x = 5;
+    sm.process_event("evt"_e);
+    EXPECT_TRUE(sm.is("B"_s));
+    EXPECT_EQ(10, logic.x);
+  }
 }
 
 //--------------------------------------------------------------------------

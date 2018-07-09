@@ -12,7 +12,7 @@ Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml). Mo
 * Clear semantics.
 * Well tested.
 
-## Dependencies
+## Requirements
 
 - C++14 syntax
 - few headers from STL
@@ -142,35 +142,55 @@ const auto action = [](){ do_something(); };
 
 ### Dependencies
 
-Useful to connect the SM with non-global logic.
+Useful to connect the SM with non-global logic. You can use lambdas (or free
+functions) that will accept the dependency as an argument or you can pass
+member function pointers.
+
+Use `dsml::callee()` to wrap member function pointers.
 
 ```cpp
-using namespace dsml::literals;
-using namespace dsml::guard_operators;
-
-struct Data
+struct Logic
 {
   int x{};
+
+  bool dguard() const
+  {
+    return x < 99;
+  }
+
+  void daction()
+  {
+    x = 33;
+  }
 };
 
-const auto guard = [](const Data& data){ return data.x <= 5; };
-const auto action = [](Data& data){ data.x += 2; };
+const auto guard = [](const Logic& logic){ return logic.x <= 5; };
+const auto action = [](Logic& logic){ logic.x += 2; };
 
 struct MyMachine
 {
   auto operator()() const noexcept
   {
+    using dsml::callee;
+    using namespace dsml::literals;
+    using namespace dsml::guard_operators;
+
     return dsml::make_transition_table(
           dsml::initial_state + "evt1"_e [ guard ] / action = "A"_s
         , dsml::initial_state + "evt1"_e [ ! guard ] = "B"_s
+        , dsml::initial_state
+                + "evt1"_e [ callee(&Logic::dguard) ] / callee(&Logic::daction)
+                = "B"_s
       );
   }
 };
 
 void func()
 {
-  Data data{};
-  dsml::Sm<MyMachine, Data> sm{data};
+  using namespace dsml::literals;
+
+  Logic logic{};
+  dsml::Sm<MyMachine, Logic> sm{logic};
   sm.process_event("evt1"_e);
 }
 ```

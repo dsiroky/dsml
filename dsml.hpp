@@ -326,12 +326,16 @@ struct Callable : CallableImpl<_F> {};
 
 //--------------------------------------------------------------------------
 
-template<typename T, typename = void>
-struct IsCallable : std::is_function<T> { };
+template<typename _T, typename = void>
+struct IsCallable
+{
+  static constexpr bool value{std::is_function<_T>::value ||
+                              std::is_member_function_pointer<_T>::value};
+};
 
-template<typename T>
-struct IsCallable<T, typename std::enable_if<
-    std::is_same<decltype(void(&T::operator())), void>::value
+template<typename _T>
+struct IsCallable<_T, typename std::enable_if<
+    std::is_same<decltype(void(&_T::operator())), void>::value
     >::type> : std::true_type { };
 
 //--------------------------------------------------------------------------
@@ -351,6 +355,13 @@ struct IsGuardImpl<_F, false>
 template<typename _F>
 struct IsGuard : IsGuardImpl<_F, IsCallable<_F>::value> {};
 
+template<typename _F>
+void check_is_guard()
+{
+  static_assert(detail::IsGuard<_F>::value,
+                "guard must be callable returning bool");
+}
+
 //--------------------------------------------------------------------------
 
 template<typename, bool>
@@ -367,6 +378,61 @@ struct IsActionImpl<_F, false>
 };
 template<typename _F>
 struct IsAction : IsActionImpl<_F, IsCallable<_F>::value> {};
+
+template<typename _F>
+void check_is_action()
+{
+  static_assert(detail::IsAction<_F>::value,
+                "action must be callable with void return type");
+}
+
+//--------------------------------------------------------------------------
+
+/// makes a lambda wrapper `[](Klass& k){...}` around a member function pointer
+template<typename _Ret, typename _Klass, typename... _Args>
+auto method_callee(_Ret(_Klass::*ptr)(_Args...))
+{
+  return [ptr](_Klass& k)
+          noexcept(noexcept(((k).*(ptr))()))
+          { return ((k).*(ptr))(); };
+}
+template<typename _Ret, typename _Klass, typename... _Args>
+auto method_callee(_Ret(_Klass::*ptr)(_Args...) const)
+{
+  return [ptr](const _Klass& k)
+          noexcept(noexcept(((k).*(ptr))()))
+          { return ((k).*(ptr))(); };
+}
+template<typename _Ret, typename _Klass, typename... _Args>
+auto method_callee(_Ret(_Klass::*ptr)(_Args...) volatile)
+{
+  return [ptr](_Klass& k)
+          noexcept(noexcept(((k).*(ptr))()))
+          { return ((k).*(ptr))(); };
+}
+template<typename _Ret, typename _Klass, typename... _Args>
+auto method_callee(_Ret(_Klass::*ptr)(_Args...) const volatile)
+{
+  return [ptr](const _Klass& k)
+          noexcept(noexcept(((k).*(ptr))()))
+          { return ((k).*(ptr))(); };
+}
+
+//--------------------------------------------------------------------------
+
+template<typename, bool>
+struct UnifyCalleeImpl;
+template<typename _F>
+struct UnifyCalleeImpl<_F, true>
+{ static auto unify(_F f) { return method_callee(f); } };
+template<typename _F>
+struct UnifyCalleeImpl<_F, false>
+{ static auto unify(_F f) { return std::move(f); } };
+
+template<typename _F>
+struct UnifyCallee
+  : UnifyCalleeImpl<_F, std::is_member_function_pointer<_F>::value>
+{};
 
 //--------------------------------------------------------------------------
 
@@ -625,9 +691,8 @@ struct EventBundle
   template<typename _F>
   auto operator/(_F action) const noexcept
   {
-    static_assert(detail::IsAction<_F>::value,
-                  "action must be callable with void return type");
-    return EventBundle<_Event, _GuardF, _F>{m_guard, action};
+    detail::check_is_action<_F>();
+    return EventBundle<_Event, _GuardF, _F>{m_guard, std::move(action)};
   }
 
   const _GuardF m_guard{};
@@ -640,20 +705,18 @@ struct Event
   template<typename _ActionF>
   auto operator/(_ActionF action) const noexcept
   {
-    static_assert(detail::IsAction<_ActionF>::value,
-                  "action must be callable with void return type");
+    detail::check_is_action<_ActionF>();
     return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
-                detail::always_true_guard, action
-              };
+                                detail::always_true_guard, std::move(action)
+                              };
   }
 
   template<typename _GuardF>
   auto operator[](_GuardF guard) const noexcept
   {
-    static_assert(detail::IsGuard<_GuardF>::value,
-                  "guard must be callable returning bool");
+    detail::check_is_guard<_GuardF>();
     return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
-                guard, detail::no_action
+                std::move(guard), detail::no_action
               };
   }
 };
@@ -941,16 +1004,14 @@ struct State
   template<typename _F>
   auto operator[](_F guard) const noexcept
   {
-    static_assert(detail::IsGuard<_F>::value,
-                  "guard must be callable returning bool");
+    detail::check_is_guard<_F>();
     return *this + Event<detail::anonymous_t>{} [ guard ];
   }
 
   template<typename _F>
   auto operator/(_F action) const noexcept
   {
-    static_assert(detail::IsAction<_F>::value,
-                  "action must be callable with void return type");
+    detail::check_is_action<_F>();
     return *this + Event<detail::anonymous_t>{} / action;
   }
 
@@ -1013,12 +1074,11 @@ struct StateTransition
   template<typename _F>
   auto operator/(_F action) const noexcept
   {
-    static_assert(detail::IsAction<_F>::value,
-                  "action must be callable with void return type");
+    detail::check_is_action<_F>();
     auto new_bundle = EventBundle<typename _EventBundle::event_t,
                                   typename _EventBundle::guard_t,
                                   _F>
-                                  {m_event_bundle.m_guard, action};
+                          {m_event_bundle.m_guard, std::move(action)};
     return StateTransition<_SrcS, decltype(new_bundle)>{std::move(new_bundle)};
   }
 
@@ -1145,6 +1205,17 @@ private:
 
 //==========================================================================
 
+/// Convert a callable to a form usable as a guard or an action. Lambdas and
+/// function pointers will be passed as is and member function pointers will be
+/// converted to a lambda in a form `[](Klass& k){ return ((k).*(ptr))(); }`.
+template<typename _F>
+auto callee(_F f)
+{
+  return detail::UnifyCallee<_F>::unify(std::move(f));
+}
+
+//==========================================================================
+
 static constexpr auto initial_state = State<detail::initial_t>{};
 static constexpr auto final_state = State<detail::final_t>{};
 static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
@@ -1172,24 +1243,24 @@ auto operator""_e() {
 namespace guard_operators {
 
 template<typename _F>
-auto operator!(const _F& func)
+auto operator!(_F func)
 {
-  return detail::OpNot<_F>{func};
+  return detail::OpNot<_F>{std::move(func)};
 }
 
 template<typename _F1, typename _F2>
-auto operator&&(const _F1& func1, const _F2& func2)
+auto operator&&(_F1 func1, _F2 func2)
 {
-  return detail::OpAnd<_F1, _F2>{func1, func2};
+  return detail::OpAnd<_F1, _F2>{std::move(func1), std::move(func2)};
 }
 
 template<typename _F1, typename _F2>
-auto operator||(const _F1& func1, const _F2& func2)
+auto operator||(_F1 func1, _F2 func2)
 {
-  return detail::OpOr<_F1, _F2>{func1, func2};
+  return detail::OpOr<_F1, _F2>{std::move(func1), std::move(func2)};
 }
 
-}
+} // namespace
 
 //==========================================================================
 } // namespace
