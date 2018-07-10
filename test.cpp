@@ -10,6 +10,7 @@
 
 const auto true_guard = [](){ return true; };
 const auto false_guard = [](){ return false; };
+const auto no_action = [](){};
 
 //==========================================================================
 
@@ -1469,6 +1470,118 @@ TEST(SmMultilevelComposite, Mixture)
 
   sm.process_event("e1"_e);
   EXPECT_EQ((std::vector<int>{{1, 3}}), data.calls);
+}
+
+//==========================================================================
+
+struct MyObserver : dsml::Observer
+{
+  std::vector<std::string> log{};
+
+  template <typename TEvent>
+  void event()
+  {
+    log.push_back(TEvent::base_t::c_str());
+  }
+
+  template <typename TGuard>
+  void guard(const TGuard&, const bool result)
+  {
+    log.push_back("guard " + std::to_string(result));
+  }
+
+  template <typename TAction>
+  void action(const TAction&)
+  {
+    log.push_back("action");
+  }
+
+  template <typename TSrcState, typename TDstState>
+  void state_change()
+  {
+    log.push_back(std::string{TSrcState::base_t::c_str()} +
+                  "->" +
+                  std::string{TDstState::base_t::c_str()});
+  }
+};
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, Observer)
+{
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() const noexcept {
+    return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+        , "A"_s + "e1"_e [ false_guard ] / no_action = "B"_s
+        , "A"_s + "e1"_e [ true_guard ] / no_action = "C"_s
+
+  ); } };
+
+  MyObserver observer{};
+  dsml::Sm<MyMachine, MyObserver> sm{observer};
+
+  sm.process_event("e1"_e);
+  EXPECT_EQ((std::vector<std::string>{
+            "anonymous",
+            "initial->A",
+            "anonymous",
+            "e1",
+            "guard 1",
+            "action",
+            "A->C",
+            "anonymous"
+          }), observer.log);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, ObserverAndDependency)
+{
+  struct Logic
+  {
+    bool guard() const
+    {
+      return x == 0;
+    }
+
+    void action()
+    {
+      x = 10;
+    }
+
+    int x{0};
+  };
+
+  using namespace dsml::literals;
+  struct MyMachine { auto operator()() const noexcept {
+    return dsml::make_transition_table(
+
+          dsml::initial_state = "A"_s
+        , "A"_s + "e1"_e
+              [ dsml::callee(&Logic::guard) ]
+              / dsml::callee(&Logic::action)
+              = "B"_s
+
+  ); } };
+
+  MyObserver observer{};
+  Logic logic{};
+  dsml::Sm<MyMachine, MyObserver, Logic> sm{observer, logic};
+
+  sm.process_event("e1"_e);
+  EXPECT_EQ((std::vector<std::string>{
+            "anonymous",
+            "initial->A",
+            "anonymous",
+            "e1",
+            "guard 1",
+            "action",
+            "A->B",
+            "anonymous"
+          }), observer.log);
+  EXPECT_EQ(10, logic.x);
 }
 
 //==========================================================================

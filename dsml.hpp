@@ -31,6 +31,11 @@ auto get_type_name();
 
 //--------------------------------------------------------------------------
 
+struct Policy {};
+struct Observer : Policy {};
+
+//--------------------------------------------------------------------------
+
 template<typename _T>
 struct IsState : std::false_type {};
 template<typename _T>
@@ -47,6 +52,11 @@ static constexpr auto is_event_v = IsEvent<_T>::value;
 
 //==========================================================================
 namespace detail {
+//==========================================================================
+
+static const auto always_true_guard = [](){ return true; };
+static const auto no_action = [](){};
+
 //==========================================================================
 
 template <typename _T, _T...>
@@ -293,6 +303,107 @@ struct TypeIndex<_T, std::tuple<_Ts...>>
 
 //--------------------------------------------------------------------------
 
+template<typename _T>
+struct IsPolicy
+{
+  static constexpr bool value{std::is_base_of<Policy, std::decay_t<_T>>::value};
+};
+
+template<typename _T>
+struct IsNotPolicy
+{
+  static constexpr bool value{!std::is_base_of<Policy, std::decay_t<_T>>::value};
+};
+
+template<typename _T>
+struct IsObserver
+{
+  static constexpr bool value{std::is_base_of<Observer, std::decay_t<_T>>::value};
+};
+
+//--------------------------------------------------------------------------
+
+template<bool>
+struct NotifyObserverImpl;
+
+template<>
+struct NotifyObserverImpl<true>
+{
+  template<typename _Deps, typename _Event>
+  static void event(const _Deps&)
+  {
+  }
+
+  template<typename _Deps, typename TGuard>
+  static void guard(const _Deps&, const TGuard&, const bool)
+  {
+  }
+
+  template<typename _Deps, typename TAction>
+  static void action(const _Deps&, const TAction&)
+  {
+  }
+
+  template<typename _Deps, typename TSrcState, typename TDstState>
+  static void state_change(const _Deps&)
+  {
+  }
+};
+
+template<>
+struct NotifyObserverImpl<false>
+{
+  template<typename _Deps, typename _Event>
+  static void event(_Deps& deps)
+  {
+    get_observer(deps).template event<std::decay_t<_Event>>();
+  }
+
+  template<typename _Deps, typename _Guard>
+  static void guard(_Deps& deps, const _Guard& grd, const bool result)
+  {
+    if (!std::is_same<std::decay_t<_Guard>,
+                      std::decay_t<decltype(always_true_guard)>>::value)
+    {
+      get_observer(deps).template guard<std::decay_t<_Guard>>(grd, result);
+    }
+  }
+
+  template<typename _Deps, typename _Action>
+  static void action(_Deps& deps, const _Action& actn)
+  {
+    if (!std::is_same<std::decay_t<_Action>,
+                      std::decay_t<decltype(no_action)>>::value)
+    {
+      get_observer(deps).template action<std::decay_t<_Action>>(actn);
+    }
+  }
+
+  template<typename _Deps, typename _SrcState, typename _DstState>
+  static void state_change(_Deps& deps)
+  {
+    get_observer(deps).template state_change<std::decay_t<_SrcState>,
+                                              std::decay_t<_DstState>>();
+  }
+
+private:
+  template<typename _Deps>
+  static auto& get_observer(_Deps& deps)
+  {
+    using indices_t = TupleIndexFilter_t<IsObserver, _Deps>;
+    return std::get<0>(tuple_ref_selection(deps, indices_t{}));
+  }
+};
+
+template<typename _Deps>
+struct NotifyObserver : NotifyObserverImpl<
+                          std::tuple_size<
+                                    typename Filter<IsObserver, _Deps>::type
+                                >::value == 0
+                        > {};
+
+//--------------------------------------------------------------------------
+
 template<typename _F>
 struct CallableImpl;
 template<typename _Ret, typename... _Args>
@@ -438,9 +549,11 @@ auto call_impl(_F func, _Deps& deps, std::index_sequence<_Is...>)
 template<typename _F, typename _Deps>
 auto call(_F func, _Deps& deps)
 {
+  using nonpolicy_indices_t = TupleIndexFilter_t<IsNotPolicy, _Deps>;
+  auto filtered_deps = tuple_ref_selection(deps, nonpolicy_indices_t{});
   using args_t = typename Callable<_F>::args_t;
   using args_indices_t = std::make_index_sequence<std::tuple_size<args_t>::value>;
-  return call_impl(func, deps, args_indices_t{});
+  return call_impl(func, filtered_deps, args_indices_t{});
 }
 
 //--------------------------------------------------------------------------
@@ -543,14 +656,11 @@ public:
 
 //--------------------------------------------------------------------------
 
-static const auto always_true_guard = [](){ return true; };
-static const auto no_action = [](){};
-
-struct anonymous_t {};
-struct on_entry_t {};
-struct on_exit_t {};
-struct initial_t {};
-struct final_t {};
+struct anonymous_t { static auto c_str() { return "anonymous"; } };
+struct on_entry_t { static auto c_str() { return "on_entry"; } };
+struct on_exit_t { static auto c_str() { return "on_exit"; } };
+struct initial_t { static auto c_str() { return "initial"; } };
+struct final_t { static auto c_str() { return "final"; } };
 
 //--------------------------------------------------------------------------
 
@@ -695,6 +805,8 @@ struct EventBundle
 template<typename _T>
 struct Event
 {
+  using base_t = _T;
+
   template<typename _ActionF>
   auto operator/(_ActionF action) const noexcept
   {
@@ -758,30 +870,44 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                         state_number_v<typename row_t::src_state_t, _AllStates>;
     if ((source_state == state) and call(guard, deps))
     {
-      constexpr auto destination_state =
-                        state_number_v<typename row_t::dst_state_t, _AllStates>;
-      if (source_state != destination_state)
+      const auto allowed = call(guard, deps);
+      detail::NotifyObserver<_Deps>::template guard<_Deps, decltype(guard)>
+                                                        (deps, guard, allowed);
+      if (allowed)
       {
-        const auto exit_rows = detail::rows_with_dst_state(
-                              detail::rows_with_event(all_rows, Event<on_exit_t>{}),
-                              typename row_t::src_state_t{});
-        call_row_action(exit_rows, deps,
-                          std::conditional_t<IsEmptyTuple<decltype(exit_rows)>::value,
-                          std::false_type, std::true_type>{});
+        constexpr auto destination_state =
+                          state_number_v<typename row_t::dst_state_t, _AllStates>;
+        if (source_state != destination_state)
+        {
+          const auto exit_rows = detail::rows_with_dst_state(
+                                detail::rows_with_event(all_rows, Event<on_exit_t>{}),
+                                typename row_t::src_state_t{});
+          call_row_action(exit_rows, deps,
+                            std::conditional_t<IsEmptyTuple<decltype(exit_rows)>::value,
+                            std::false_type, std::true_type>{});
+        }
+        detail::NotifyObserver<_Deps>
+                  ::template action<_Deps, decltype(row.m_event_bundle.m_action)>
+                                              (deps, row.m_event_bundle.m_action);
+        call(row.m_event_bundle.m_action, deps);
+        if (source_state != destination_state)
+        {
+          state = destination_state;
+          detail::NotifyObserver<_Deps>::template state_change<
+                                            _Deps,
+                                            typename row_t::src_state_t,
+                                            typename row_t::dst_state_t>(deps);
+          const auto entry_rows = detail::rows_with_dst_state(
+                                detail::rows_with_event(all_rows, Event<on_entry_t>{}),
+                                typename row_t::dst_state_t{});
+          call_row_action(entry_rows, deps,
+                            std::conditional_t<IsEmptyTuple<decltype(entry_rows)>::value,
+                                              std::false_type, std::true_type>{});
+        }
+        processed = true;
       }
-      call(row.m_event_bundle.m_action, deps);
-      if (source_state != destination_state)
-      {
-        state = destination_state;
-        const auto entry_rows = detail::rows_with_dst_state(
-                              detail::rows_with_event(all_rows, Event<on_entry_t>{}),
-                              typename row_t::dst_state_t{});
-        call_row_action(entry_rows, deps,
-                          std::conditional_t<IsEmptyTuple<decltype(entry_rows)>::value,
-                                            std::false_type, std::true_type>{});
-      }
-      processed = true;
     }
+
     return processed or
           ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                                 std::tuple<_Rows...>>{}(
@@ -789,16 +915,6 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                         state, deps);
   }
 };
-
-template<typename _AllStates, typename _AllRows, typename _FilteredRows,
-        typename _StateNum, typename _Deps>
-bool process_single_event(const _AllStates&, const _AllRows& all_rows,
-                          const _FilteredRows& filtered_rows,
-                          _StateNum& state, _Deps& deps)
-{
-  return ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum, _FilteredRows>{}(
-                                  all_rows, filtered_rows, state, deps);
-}
 
 //==========================================================================
 
@@ -1157,6 +1273,7 @@ public:
   //--------------------------------
 
 private:
+  using deps_t = std::tuple<_Deps&...>;
   using transition_table_t = decltype(detail::expand_table<_MachineDecl>());
   using required_types_t = detail::CollectRequiredDepTypes_t<
                                           typename transition_table_t::rows_t>;
@@ -1172,11 +1289,15 @@ private:
   bool process_single_event(const Event<_ET>& evt)
   {
     const auto table = detail::expand_table<_MachineDecl>();
-    const auto rows = detail::rows_with_event(table.m_rows, evt);
-    const auto processed = detail::process_single_event(
-                              typename transition_table_t::states_t{}, table.m_rows, rows,
-                              m_state_number, m_deps);
-    return processed;
+    auto filtered_rows = detail::rows_with_event(table.m_rows, evt);
+    detail::NotifyObserver<deps_t>::template event<deps_t, decltype(evt)>(m_deps);
+    return detail::ProcessSingleEventImpl<
+                            typename transition_table_t::states_t,
+                            decltype(table.m_rows),
+                            deps_t,
+                            state_number_t,
+                            decltype(filtered_rows)>
+                        {}(table.m_rows, filtered_rows, m_state_number, m_deps);
   }
 
   void process_anonymous_events()
@@ -1187,7 +1308,7 @@ private:
 
   //--------------------------------
 
-  std::tuple<_Deps&...> m_deps;
+  deps_t m_deps;
   /// actual state machine state
   state_number_t m_state_number{detail::TypeIndex<
                                     State<detail::initial_t>,
