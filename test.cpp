@@ -279,9 +279,9 @@ TEST(Callable, Lambdas)
 
 TEST(GetTypeName, ReturnsString)
 {
-  EXPECT_STREQ("int", dsml::detail::get_type_name<int>());
-  EXPECT_STREQ("float", dsml::detail::get_type_name<float>());
-  EXPECT_STREQ("std::tuple<char>", dsml::detail::get_type_name<std::tuple<char>>());
+  EXPECT_STREQ("int", dsml::get_type_name<int>());
+  EXPECT_STREQ("float", dsml::get_type_name<float>());
+  EXPECT_STREQ("std::tuple<char>", dsml::get_type_name<std::tuple<char>>());
 }
 
 //==========================================================================

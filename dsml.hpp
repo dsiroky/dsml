@@ -26,6 +26,9 @@ struct State;
 template<typename>
 struct Event;
 
+template <typename T>
+auto get_type_name();
+
 //--------------------------------------------------------------------------
 
 template<typename _T>
@@ -63,16 +66,6 @@ template <class, size_t N, size_t... Ns>
 auto get_type_name_impl(const char *ptr, std::index_sequence<Ns...>) {
   static const char str[] = {ptr[N + Ns]..., 0};
   return str;
-}
-template <typename T>
-auto get_type_name() {
-#if defined(__clang__)
-  using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 40 - 2>;
-  return detail::get_type_name_impl<T, 40>(__PRETTY_FUNCTION__, seq_t{});
-#elif defined(__GNUC__)
-  using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 45 - 2>;
-  return detail::get_type_name_impl<T, 45>(__PRETTY_FUNCTION__, seq_t{});
-#endif
 }
 
 //--------------------------------------------------------------------------
@@ -1212,6 +1205,20 @@ template<typename _F>
 auto callee(_F f)
 {
   return detail::UnifyCallee<_F>::unify(std::move(f));
+}
+
+//==========================================================================
+
+/// Simple type introspection without RTTI.
+template <typename T>
+auto get_type_name() {
+#if defined(__clang__)
+  using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 32 - 2>;
+  return detail::get_type_name_impl<T, 32>(__PRETTY_FUNCTION__, seq_t{});
+#elif defined(__GNUC__)
+  using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 37 - 2>;
+  return detail::get_type_name_impl<T, 37>(__PRETTY_FUNCTION__, seq_t{});
+#endif
 }
 
 //==========================================================================
