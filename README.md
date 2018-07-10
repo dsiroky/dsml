@@ -24,12 +24,14 @@ Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml). Mo
 ![diagram](diagrams/hello_world.png)
 
 ```cpp
+#include <iostream>
+
 #include <dsml.hpp>
 
 using namespace dsml::literals;
 
 const auto guard = [](){ return true; };
-const auto action = [](){ do_something(); };
+const auto action = [](){ std::cout << "hello\n"; };
 
 struct MyMachine
 {
@@ -50,7 +52,9 @@ int main()
 {
   dsml::Sm<MyMachine> sm{};
   sm.process_event("evt1"_e);
-  return sm.is("A"_s);
+  sm.process_event("evt2"_e);
+  sm.process_event("evt4"_e);
+  return sm.is("D"_s);
 }
 ```
 
