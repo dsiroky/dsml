@@ -228,10 +228,72 @@ struct CompositeMachine
 };
 ```
 
+### Observer
+
+Useful e.g. for logging.
+
+```cpp
+// must be inherited from dsml::Observer
+struct MyObserver : dsml::Observer
+{
+  // methods are not virtual
+
+  template <typename TEvent>
+  void event()
+  {
+    std::cout << "event: " << TEvent::base_t::c_str() << '\n';
+  }
+
+  template <typename TGuard>
+  void guard(const TGuard&, const bool result)
+  {
+    std::cout << "guard " << result << '\n';
+  }
+
+  template <typename TAction>
+  void action(const TAction&)
+  {
+    std::cout << "action\n";
+  }
+
+  template <typename TSrcState, typename TDstState>
+  void state_change()
+  {
+    std::cout << TSrcState::base_t::c_str()
+              << " -> "
+              << TDstState::base_t::c_str()
+              << '\n';
+  }
+};
+
+struct MyMachine
+{
+  auto operator()() const noexcept
+  {
+    using namespace dsml::literals;
+
+    const auto guard = [](){ return true; };
+    const auto action = [](){ std::cout << "hello\n"; };
+
+    return dsml::make_transition_table(
+          dsml::initial_state + "evt"_e [ guard ] / action = "A"_s
+      );
+  }
+};
+
+void func()
+{
+  using namespace dsml::literals;
+
+  MyObserver observer{};
+  dsml::Sm<MyMachine, MyObserver> sm{observer};
+  sm.process_event("evt"_e);
+}
+```
+
 ## TODO
 - `unexpected_event`
 - more static asserts
-- logging
 - move private stuff to detail
 - compilation time optimizations
 - comments
