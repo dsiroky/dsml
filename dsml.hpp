@@ -1,3 +1,9 @@
+/// State machine library.
+///
+/// @copyright https://github.com/dsiroky/dsml/blob/master/LICENSE.txt
+///
+/// @file
+
 #pragma once
 #ifndef DSML_HPP__O06IR34S
 #define DSML_HPP__O06IR34S
