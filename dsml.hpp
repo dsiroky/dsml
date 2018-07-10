@@ -1173,7 +1173,6 @@ private:
   {
     const auto table = detail::expand_table<_MachineDecl>();
     const auto rows = detail::rows_with_event(table.m_rows, evt);
-    // only for re-casting
     const auto processed = detail::process_single_event(
                               typename transition_table_t::states_t{}, table.m_rows, rows,
                               m_state_number, m_deps);
