@@ -228,6 +228,13 @@ struct CompositeMachine
 };
 ```
 
+Internally the whole state machine is connected like this:
+
+![diagram](diagrams/composite_internal.png)
+
+Transitions to the sub-machine are connected to its initial state and
+transitions from the sub-machine are connected to its final state.
+
 ### Observer
 
 Useful e.g. for logging.

@@ -1,0 +1,19 @@
+digraph {
+
+include(common.style)
+
+initial [ shape=point height=0.4 ];
+initial_sub [ shape=point height=0.4 ];
+final_sub [ shape=doublecircle label="" ];
+A_sub [ label=<A<sub>2</sub>> ];
+B_sub [ label=<B<sub>2</sub>> ];
+
+initial_sub -> A_sub [ label="evt1" ];
+initial_sub -> B_sub [ label="evt2" ];
+A_sub -> final_sub [ label="evt1" ];
+B_sub -> final_sub [ label="evt1" ];
+
+initial -> initial_sub [ label="evt1" ];
+final_sub -> A [ label="evt2" ];
+
+}
