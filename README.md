@@ -2,7 +2,10 @@
 
 # dsml - C++ state machine library
 
-Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml). Motivation to create another SM library was to have well implemented anonymous transitions and more straightforward approach to composite state machines. *dsml* aims to be almost UML compliant.
+Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml).
+Motivation to create another SM library was to have well implemented anonymous
+transitions and more straightforward approach to composite state machines.
+*dsml* aims to be almost UML compliant.
 
 ## Main goals
 
@@ -299,7 +302,7 @@ struct MyObserver : dsml::Observer
   template <typename TEvent>
   void event()
   {
-    std::cout << "event: " << TEvent::base_t::c_str() << '\n';
+    std::cout << "event: " << TEvent::c_str() << '\n';
   }
 
   template <typename TGuard>
@@ -317,9 +320,9 @@ struct MyObserver : dsml::Observer
   template <typename TSrcState, typename TDstState>
   void state_change()
   {
-    std::cout << TSrcState::base_t::c_str()
+    std::cout << TSrcState::c_str()
               << " -> "
-              << TDstState::base_t::c_str()
+              << TDstState::c_str()
               << '\n';
   }
 };
@@ -350,7 +353,6 @@ void func()
 ```
 
 ## TODO
-- helpers for observer printing (`.c_str()`, ...)
 - `unexpected_event`
 - more static asserts
 - move private stuff to detail

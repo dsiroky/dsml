@@ -287,6 +287,34 @@ TEST(GetTypeName, ReturnsString)
 
 //==========================================================================
 
+struct WithCStr
+{
+  static const char* c_str() { return "foo"; };
+};
+
+
+TEST(HasStaticCStr, Value)
+{
+  using namespace dsml::literals;
+
+  EXPECT_FALSE(dsml::detail::HasStaticCStr<int>::value);
+  constexpr auto udl_cstr = dsml::detail::HasStaticCStr<decltype("hello"_s)>::value;
+  EXPECT_TRUE(udl_cstr);
+  constexpr auto s_cstr = dsml::detail::HasStaticCStr<WithCStr>::value;
+  EXPECT_TRUE(s_cstr);
+}
+
+TEST(Stringify, ReturnsString)
+{
+  using namespace dsml::literals;
+
+  EXPECT_STREQ("int", dsml::detail::c_str<int>());
+  EXPECT_STREQ("hello", dsml::detail::c_str<decltype("hello"_s)>());
+  EXPECT_STREQ("foo", dsml::detail::c_str<WithCStr>());
+}
+
+//==========================================================================
+
 TEST(RowWithEvent, NoMatch_EmptyTuple)
 {
   using namespace dsml::literals;

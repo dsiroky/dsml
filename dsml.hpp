@@ -86,13 +86,48 @@ auto get_type_name_impl(const char *ptr, std::index_sequence<Ns...>) {
 
 //--------------------------------------------------------------------------
 
+template <typename _T>
+struct HasStaticCStr
+{
+  using yes = char[1];
+  using no = char[2];
+
+  template <class U, decltype(U::c_str())(*)() = &U::c_str>
+  struct MethodTrait;
+
+  template <typename U>
+  static yes& _has(MethodTrait<U>*);
+
+  template <typename>
+  static no& _has(...);
+
+  static constexpr bool value{sizeof(_has<_T>(0)) == sizeof(yes)};
+};
+
+template<typename _T>
+auto c_str_impl(std::true_type)
+{
+  return _T::c_str();
+}
+
+template<typename _T>
+auto c_str_impl(std::false_type)
+{
+  return get_type_name<_T>();
+}
+
+template<typename _T>
+auto c_str()
+{
+  return c_str_impl<_T>(std::conditional_t<HasStaticCStr<_T>::value,
+                                          std::true_type, std::false_type>{});
+}
+
+//--------------------------------------------------------------------------
+
 // type holder is only for autodeduction (avoid instantiation of the type itself)
 template<typename _Type>
 struct TypeHolder { using type = _Type; };
-
-// type holder for two
-template<typename _T1, typename _T2>
-struct PairTypeHolder { };
 
 //--------------------------------------------------------------------------
 
@@ -662,11 +697,11 @@ public:
 
 //--------------------------------------------------------------------------
 
-struct anonymous_t { static auto c_str() { return "anonymous"; } };
-struct on_entry_t { static auto c_str() { return "on_entry"; } };
-struct on_exit_t { static auto c_str() { return "on_exit"; } };
-struct initial_t { static auto c_str() { return "initial"; } };
-struct final_t { static auto c_str() { return "final"; } };
+struct anonymous_t { static auto c_str() noexcept { return "anonymous"; } };
+struct on_entry_t { static auto c_str() noexcept { return "on_entry"; } };
+struct on_exit_t { static auto c_str() noexcept { return "on_exit"; } };
+struct initial_t { static auto c_str() noexcept { return "initial"; } };
+struct final_t { static auto c_str() noexcept { return "final"; } };
 
 //--------------------------------------------------------------------------
 
@@ -830,6 +865,11 @@ struct Event
                 std::move(guard), detail::no_action
               };
   }
+
+  static auto c_str() noexcept
+  {
+    return detail::c_str<base_t>();
+  };
 };
 
 //==========================================================================
@@ -949,11 +989,20 @@ auto transition_table_from_machine_declaration()
 
 //--------------------------------------------------------------------------
 
+template<typename _T1, typename _T2>
+struct StateWrap
+{
+  static auto c_str()
+  {
+    return detail::c_str<_T2>();
+  }
+};
+
 template<typename _State, typename _Wrap>
 struct WrapState
 {
   static_assert(is_state_v<_State>, "");
-  using type = State<PairTypeHolder<_Wrap, typename _State::base_t>>;
+  using type = State<StateWrap<_Wrap, typename _State::base_t>>;
 };
 
 /// WrapState<WrapState<WrapState<...>>>
@@ -1135,6 +1184,11 @@ struct State
   {
     return *this + Event<detail::anonymous_t>{} = dst;
   }
+
+  static auto c_str() noexcept
+  {
+    return detail::c_str<base_t>();
+  };
 
 private:
   struct transition_action_t {};
