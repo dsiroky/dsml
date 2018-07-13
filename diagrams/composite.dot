@@ -5,17 +5,17 @@ include(common.style)
 initial [ shape=point height=0.4 ];
 initial_sub [ shape=point height=0.4 ];
 final_sub [ shape=doublecircle label="" ];
-A_sub [ label="A" ];
 B_sub [ label="B" ];
+C_sub [ label="C" ];
 
 subgraph cluster0 {
     label = "OtherMachine"
     style = rounded
 
-    initial_sub -> A_sub [ label="evt1" ];
-    initial_sub -> B_sub [ label="evt2" ];
-    A_sub -> final_sub [ label="evt1" ];
+    initial_sub -> B_sub [ label="evt1" ];
+    initial_sub -> C_sub [ label="evt2" ];
     B_sub -> final_sub [ label="evt1" ];
+    C_sub -> final_sub [ label="evt1" ];
   }
 
 initial -> initial_sub [ label="evt1" lhead=cluster0 ];

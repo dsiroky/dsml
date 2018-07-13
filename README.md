@@ -202,16 +202,17 @@ void func()
 ### Composite state machines
 
 ![diagram](diagrams/composite.png)
+
 ```cpp
 struct OtherMachine
 {
   auto operator()() const noexcept
   {
     return dsml::make_transition_table(
-          dsml::initial_state + "evt1"_e = "A"_s
-        , dsml::initial_state + "evt2"_e = "B"_s
-        , "A"_s + "evt1"_e = dsml::final_state
+          dsml::initial_state + "evt1"_e = "B"_s
+        , dsml::initial_state + "evt2"_e = "C"_s
         , "B"_s + "evt1"_e = dsml::final_state
+        , "C"_s + "evt1"_e = dsml::final_state
       );
   }
 };
@@ -299,6 +300,8 @@ void func()
 ```
 
 ## TODO
+- document dsml::State<X>{} and dsml::Event<Y>{} usage
+- helpers for observer printing (`.c_str()`, ...)
 - `unexpected_event`
 - more static asserts
 - move private stuff to detail
