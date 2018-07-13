@@ -23,6 +23,10 @@ Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml). Mo
 
 ![diagram](diagrams/hello_world.png)
 
+If your compiler supports templated user-defined literals with string argument
+(e.g. gcc and clang) then you can represent states with a custom literal with a
+suffix `_s` and events with `_e`.
+
 ```cpp
 #include <iostream>
 
@@ -55,6 +59,52 @@ int main()
   sm.process_event("evt2"_e);
   sm.process_event("evt4"_e);
   return sm.is("D"_s);
+}
+```
+
+If you prefer identifiers (which makes the code less prone to typos) or you
+can't use those fancy user literals (e.g. MSVC) then use this notation:
+
+```cpp
+#include <iostream>
+
+#include <dsml.hpp>
+
+const auto guard = [](){ return true; };
+const auto action = [](){ std::cout << "hello\n"; };
+
+using A = dsml::State<struct A_>;
+using B = dsml::State<struct B_>;
+using C = dsml::State<struct C_>;
+using D = dsml::State<struct D_>;
+
+using evt1 = dsml::Event<struct evt1_>;
+using evt2 = dsml::Event<struct evt2_>;
+using evt3 = dsml::Event<struct evt3_>;
+using evt4 = dsml::Event<struct evt4_>;
+
+struct MyMachine
+{
+  auto operator()() const noexcept
+  {
+    return dsml::make_transition_table(
+          dsml::initial_state + evt1{} = A{}
+        , A{} + evt2{} = B{}
+        , A{} + evt3{} [ guard ] = C{}
+        , B{} + evt4{} / action = C{}
+        , B{} + evt1{} = B{}
+        , C{} = D{}
+      );
+  }
+};
+
+int main()
+{
+  dsml::Sm<MyMachine> sm{};
+  sm.process_event(evt1{});
+  sm.process_event(evt2{});
+  sm.process_event(evt4{});
+  return sm.is(D{});
 }
 ```
 
@@ -300,7 +350,6 @@ void func()
 ```
 
 ## TODO
-- document dsml::State<X>{} and dsml::Event<Y>{} usage
 - helpers for observer printing (`.c_str()`, ...)
 - `unexpected_event`
 - more static asserts
