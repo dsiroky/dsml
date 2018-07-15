@@ -8,9 +8,9 @@
 
 //==========================================================================
 
-static constexpr auto true_guard = [](){ return true; };
-static constexpr auto false_guard = [](){ return false; };
-static constexpr auto no_action = [](){};
+static const auto true_guard = [](){ return true; };
+static const auto false_guard = [](){ return false; };
+static const auto no_action = [](){};
 
 #define STATE(x) static constexpr auto x = dsml::State<struct x##_>{}
 STATE(A);
