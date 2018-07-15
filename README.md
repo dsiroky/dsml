@@ -35,15 +35,15 @@ suffix `_s` and events with `_e`.
 
 #include <dsml.hpp>
 
-using namespace dsml::literals;
-
-const auto guard = [](){ return true; };
-const auto action = [](){ std::cout << "hello\n"; };
+static constexpr auto guard = [](){ return true; };
+static constexpr auto action = [](){ std::cout << "hello\n"; };
 
 struct MyMachine
 {
   auto operator()() const noexcept
   {
+    using namespace dsml::literals;
+
     return dsml::make_transition_table(
           dsml::initial_state + "evt1"_e = "A"_s
         , "A"_s + "evt2"_e = "B"_s
@@ -57,6 +57,8 @@ struct MyMachine
 
 int main()
 {
+  using namespace dsml::literals;
+
   dsml::Sm<MyMachine> sm{};
   sm.process_event("evt1"_e);
   sm.process_event("evt2"_e);
@@ -73,30 +75,32 @@ can't use those fancy user literals (e.g. MSVC) then use this notation:
 
 #include <dsml.hpp>
 
-const auto guard = [](){ return true; };
-const auto action = [](){ std::cout << "hello\n"; };
+static constexpr auto guard = [](){ return true; };
+static constexpr auto action = [](){ std::cout << "hello\n"; };
 
-using A = dsml::State<struct A_>;
-using B = dsml::State<struct B_>;
-using C = dsml::State<struct C_>;
-using D = dsml::State<struct D_>;
+#define STATE(x) static constexpr auto x = dsml::State<struct x##_>{}
+STATE(A);
+STATE(B);
+STATE(C);
+STATE(D);
 
-using evt1 = dsml::Event<struct evt1_>;
-using evt2 = dsml::Event<struct evt2_>;
-using evt3 = dsml::Event<struct evt3_>;
-using evt4 = dsml::Event<struct evt4_>;
+#define EVENT(x) static constexpr auto x = dsml::Event<struct x##_>{}
+EVENT(evt1);
+EVENT(evt2);
+EVENT(evt3);
+EVENT(evt4);
 
 struct MyMachine
 {
   auto operator()() const noexcept
   {
     return dsml::make_transition_table(
-          dsml::initial_state + evt1{} = A{}
-        , A{} + evt2{} = B{}
-        , A{} + evt3{} [ guard ] = C{}
-        , B{} + evt4{} / action = C{}
-        , B{} + evt1{} = B{}
-        , C{} = D{}
+          dsml::initial_state + evt1 = A
+        , A + evt2 = B
+        , A + evt3 [ guard ] = C
+        , B + evt4 / action = C
+        , B + evt1 = B
+        , C = D
       );
   }
 };
@@ -104,10 +108,10 @@ struct MyMachine
 int main()
 {
   dsml::Sm<MyMachine> sm{};
-  sm.process_event(evt1{});
-  sm.process_event(evt2{});
-  sm.process_event(evt4{});
-  return sm.is(D{});
+  sm.process_event(evt1);
+  sm.process_event(evt2);
+  sm.process_event(evt4);
+  return sm.is(D);
 }
 ```
 
