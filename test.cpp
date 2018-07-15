@@ -8,9 +8,26 @@
 
 //==========================================================================
 
-const auto true_guard = [](){ return true; };
-const auto false_guard = [](){ return false; };
-const auto no_action = [](){};
+static constexpr auto true_guard = [](){ return true; };
+static constexpr auto false_guard = [](){ return false; };
+static constexpr auto no_action = [](){};
+
+#define STATE(x) static constexpr auto x = dsml::State<struct x##_>{}
+STATE(A);
+STATE(B);
+STATE(C);
+STATE(D);
+STATE(E);
+STATE(F);
+STATE(G);
+STATE(H);
+STATE(SubA);
+
+#define EVENT(x) static constexpr auto x = dsml::Event<struct x##_>{}
+EVENT(e1);
+EVENT(e2);
+EVENT(e3);
+EVENT(e4);
 
 //==========================================================================
 
@@ -317,16 +334,15 @@ TEST(Stringify, ReturnsString)
 
 TEST(RowWithEvent, NoMatch_EmptyTuple)
 {
-  using namespace dsml::literals;
   const auto rows = std::make_tuple(
 
-          dsml::initial_state = "A"_s
-          , "A"_s + "e1"_e = "B"_s
-          , "B"_s + "e2"_e = "C"_s
+          dsml::initial_state = A
+          , A + e1 = B
+          , B + e2 = C
 
     );
 
-  const auto transitions = dsml::detail::rows_with_event(rows, "e4"_e);
+  const auto transitions = dsml::detail::rows_with_event(rows, e4);
 
   EXPECT_EQ(0u, std::tuple_size<decltype(transitions)>::value);
 }
@@ -335,26 +351,25 @@ TEST(RowWithEvent, NoMatch_EmptyTuple)
 
 TEST(RowWithEvent, SingleTransition)
 {
-  using namespace dsml::literals;
   const auto rows = std::make_tuple(
 
-          dsml::initial_state = "A"_s
-          , "A"_s + "e1"_e = "B"_s
-          , "B"_s + "e2"_e = "C"_s
+          dsml::initial_state = A
+          , A + e1 = B
+          , B + e2 = C
 
     );
 
-  const auto transitions = dsml::detail::rows_with_event(rows, "e1"_e);
+  const auto transitions = dsml::detail::rows_with_event(rows, e1);
 
   EXPECT_EQ(1u, std::tuple_size<decltype(transitions)>::value);
   using item0_t = std::tuple_element_t<0, decltype(transitions)>;
   EXPECT_TRUE((std::is_same<
-        std::remove_reference_t<item0_t>::src_state_t,
-        decltype("A"_s)
+        std::decay_t<item0_t>::src_state_t,
+        std::decay_t<decltype(A)>
       >::value));
   EXPECT_TRUE((std::is_same<
-        std::remove_reference_t<item0_t>::dst_state_t,
-        decltype("B"_s)
+        std::decay_t<item0_t>::dst_state_t,
+        std::decay_t<decltype(B)>
       >::value));
 }
 
@@ -362,39 +377,38 @@ TEST(RowWithEvent, SingleTransition)
 
 TEST(RowWithEvent, MultipleTransitions)
 {
-  using namespace dsml::literals;
   const auto rows = std::make_tuple(
 
-          dsml::initial_state = "A"_s
-          , "A"_s + "e1"_e = "B"_s
-          , "B"_s + "e2"_e = "C"_s
-          , "B"_s + "e1"_e = "D"_s
-          , "B"_s + "e3"_e = "A"_s
+          dsml::initial_state = A
+          , A + e1 = B
+          , B + e2 = C
+          , B + e1 = D
+          , B + e3 = A
 
     );
 
-  const auto transitions = dsml::detail::rows_with_event(rows, "e1"_e);
+  const auto transitions = dsml::detail::rows_with_event(rows, e1);
 
   EXPECT_EQ(2u, std::tuple_size<decltype(transitions)>::value);
 
   using item0_t = std::tuple_element_t<0, decltype(transitions)>;
   EXPECT_TRUE((std::is_same<
-        std::remove_reference_t<item0_t>::src_state_t,
-        decltype("A"_s)
+        std::decay_t<item0_t>::src_state_t,
+        std::decay_t<decltype(A)>
       >::value));
   EXPECT_TRUE((std::is_same<
-        std::remove_reference_t<item0_t>::dst_state_t,
-        decltype("B"_s)
+        std::decay_t<item0_t>::dst_state_t,
+        std::decay_t<decltype(B)>
       >::value));
 
   using item1_t = std::tuple_element_t<1, decltype(transitions)>;
   EXPECT_TRUE((std::is_same<
-        std::remove_reference_t<item1_t>::src_state_t,
-        decltype("B"_s)
+        std::decay_t<item1_t>::src_state_t,
+        std::decay_t<decltype(B)>
       >::value));
   EXPECT_TRUE((std::is_same<
-        std::remove_reference_t<item1_t>::dst_state_t,
-        decltype("D"_s)
+        std::decay_t<item1_t>::dst_state_t,
+        std::decay_t<decltype(D)>
       >::value));
 }
 
@@ -412,10 +426,9 @@ TEST(HasTableOperator, False)
 
 TEST(HasTableOperator, True)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
+          dsml::initial_state = A
 
   ); } };
 
@@ -487,65 +500,62 @@ TEST(Callee, ReturnTypeIsVoid)
 
 TEST(Sm, OnlyInitialStateAndAnonymousTransition_IsInTheSecondState)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
+          dsml::initial_state = A
 
   ); } };
   dsml::Sm<MyMachine> sm{};
 
   EXPECT_FALSE(sm.is(dsml::initial_state));
-  EXPECT_TRUE(sm.is("A"_s));
+  EXPECT_TRUE(sm.is(A));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(Sm, OnlyInitialStateAndTransition_IsInTheInitialState)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = "A"_s
+          dsml::initial_state + e1 = A
 
   ); } };
   dsml::Sm<MyMachine> sm{};
 
   EXPECT_TRUE(sm.is(dsml::initial_state));
-  EXPECT_FALSE(sm.is("A"_s));
+  EXPECT_FALSE(sm.is(A));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(Sm, SingleTransition)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = "A"_s
+          dsml::initial_state + e1 = A
 
   ); } };
   dsml::Sm<MyMachine> sm{};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
 
   EXPECT_FALSE(sm.is(dsml::initial_state));
-  EXPECT_TRUE(sm.is("A"_s));
+  EXPECT_TRUE(sm.is(A));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(Sm, SingleTransitionUnknownEvent_NoStateChange)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = "A"_s
+          dsml::initial_state + e1 = A
 
   ); } };
   dsml::Sm<MyMachine> sm{};
 
-  sm.process_event("eunk"_e);
+  EVENT(eunk);
+  sm.process_event(eunk);
 
   EXPECT_TRUE(sm.is(dsml::initial_state));
 }
@@ -554,38 +564,37 @@ TEST(Sm, SingleTransitionUnknownEvent_NoStateChange)
 
 TEST(Sm, MultipleTransitionsSameEvents)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = "A"_s
-          ,"A"_s + "e1"_e = "B"_s
-          ,"B"_s + "e1"_e = "C"_s
+          dsml::initial_state + e1 = A
+          ,A + e1 = B
+          ,B + e1 = C
 
   ); } };
 
   {
     dsml::Sm<MyMachine> sm{};
 
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
 
-    EXPECT_TRUE(sm.is("A"_s));
+    EXPECT_TRUE(sm.is(A));
   }
   {
     dsml::Sm<MyMachine> sm{};
 
-    sm.process_event("e1"_e);
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
+    sm.process_event(e1);
 
-    EXPECT_TRUE(sm.is("B"_s));
+    EXPECT_TRUE(sm.is(B));
   }
   {
     dsml::Sm<MyMachine> sm{};
 
-    sm.process_event("e1"_e);
-    sm.process_event("e1"_e);
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
+    sm.process_event(e1);
+    sm.process_event(e1);
 
-    EXPECT_TRUE(sm.is("C"_s));
+    EXPECT_TRUE(sm.is(C));
   }
 }
 
@@ -593,38 +602,37 @@ TEST(Sm, MultipleTransitionsSameEvents)
 
 TEST(Sm, MultipleTransitionsDifferentEvents)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = "A"_s
-          ,"A"_s + "e2"_e = "B"_s
-          ,"B"_s + "e3"_e = "C"_s
+          dsml::initial_state + e1 = A
+          ,A + e2 = B
+          ,B + e3 = C
 
   ); } };
 
   {
     dsml::Sm<MyMachine> sm{};
 
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
 
-    EXPECT_TRUE(sm.is("A"_s));
+    EXPECT_TRUE(sm.is(A));
   }
   {
     dsml::Sm<MyMachine> sm{};
 
-    sm.process_event("e1"_e);
-    sm.process_event("e2"_e);
+    sm.process_event(e1);
+    sm.process_event(e2);
 
-    EXPECT_TRUE(sm.is("B"_s));
+    EXPECT_TRUE(sm.is(B));
   }
   {
     dsml::Sm<MyMachine> sm{};
 
-    sm.process_event("e1"_e);
-    sm.process_event("e2"_e);
-    sm.process_event("e3"_e);
+    sm.process_event(e1);
+    sm.process_event(e2);
+    sm.process_event(e3);
 
-    EXPECT_TRUE(sm.is("C"_s));
+    EXPECT_TRUE(sm.is(C));
   }
 }
 
@@ -632,109 +640,104 @@ TEST(Sm, MultipleTransitionsDifferentEvents)
 
 TEST(Sm, AnonymousEventAfterNormalEvent)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = "A"_s
-          ,"A"_s = "B"_s
+          dsml::initial_state + e1 = A
+          ,A = B
 
   ); } };
 
   dsml::Sm<MyMachine> sm{};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
 
-  EXPECT_TRUE(sm.is("B"_s));
+  EXPECT_TRUE(sm.is(B));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(Sm, AnonymousEventBeforeNormalEvent)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-          ,"A"_s + "e1"_e = "B"_s
+          dsml::initial_state = A
+          ,A + e1 = B
 
   ); } };
 
   dsml::Sm<MyMachine> sm{};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
 
-  EXPECT_TRUE(sm.is("B"_s));
+  EXPECT_TRUE(sm.is(B));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(Sm, MultipleAnonymousEvents)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-          ,"A"_s = "B"_s
-          ,"B"_s = "C"_s
-          ,"C"_s = "D"_s
+          dsml::initial_state = A
+          ,A = B
+          ,B = C
+          ,C = D
 
   ); } };
 
   dsml::Sm<MyMachine> sm{};
 
-  EXPECT_TRUE(sm.is("D"_s));
+  EXPECT_TRUE(sm.is(D));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(Sm, MultipleAnonymousEventsAroundNormalEvent)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-          ,"A"_s = "B"_s
-          ,"B"_s = "C"_s
-          ,"C"_s = "D"_s
-          ,"D"_s + "e1"_e = "E"_s
-          ,"E"_s = "F"_s
-          ,"F"_s = "G"_s
-          ,"G"_s = "H"_s
+          dsml::initial_state = A
+          ,A = B
+          ,B = C
+          ,C = D
+          ,D + e1 = E
+          ,E = F
+          ,F = G
+          ,G = H
 
   ); } };
 
   dsml::Sm<MyMachine> sm{};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
 
-  EXPECT_TRUE(sm.is("H"_s));
+  EXPECT_TRUE(sm.is(H));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(Sm, DifferentEventsFromTheSameState)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = "A"_s
-          , dsml::initial_state + "e2"_e = "B"_s
+          dsml::initial_state + e1 = A
+          , dsml::initial_state + e2 = B
 
   ); } };
 
   {
     dsml::Sm<MyMachine> sm{};
 
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
 
-    EXPECT_TRUE(sm.is("A"_s));
+    EXPECT_TRUE(sm.is(A));
   }
   {
     dsml::Sm<MyMachine> sm{};
 
-    sm.process_event("e2"_e);
+    sm.process_event(e2);
 
-    EXPECT_TRUE(sm.is("B"_s));
+    EXPECT_TRUE(sm.is(B));
   }
 }
 
@@ -742,22 +745,21 @@ TEST(Sm, DifferentEventsFromTheSameState)
 
 TEST(Sm, TransitionLoop)
 {
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = dsml::initial_state
-          , dsml::initial_state + "e2"_e = "A"_s
+          dsml::initial_state + e1 = dsml::initial_state
+          , dsml::initial_state + e2 = A
 
   ); } };
 
   dsml::Sm<MyMachine> sm{};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
   EXPECT_TRUE(sm.is(dsml::initial_state));
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
   EXPECT_TRUE(sm.is(dsml::initial_state));
-  sm.process_event("e2"_e);
-  EXPECT_TRUE(sm.is("A"_s));
+  sm.process_event(e2);
+  EXPECT_TRUE(sm.is(A));
 }
 
 //--------------------------------------------------------------------------
@@ -769,20 +771,19 @@ TEST(Sm, TransitionAction)
     bool called{false};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e
+          dsml::initial_state + e1
                     / [](Data& data){ data.called = true; }
-                    = "A"_s
+                    = A
 
   ); } };
 
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is("A"_s));
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(A));
   EXPECT_TRUE(data.called);
 }
 
@@ -795,20 +796,19 @@ TEST(Sm, AnonymousTransitionAction)
     bool called{false};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state
                     / [](Data& data){ data.called = true; }
-                    = "A"_s
+                    = A
 
   ); } };
 
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is("A"_s));
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(A));
   EXPECT_TRUE(data.called);
 }
 
@@ -821,25 +821,24 @@ TEST(Sm, TransitionActionDifferentRow)
     bool called{false};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e
-                    = "A"_s
-          ,"A"_s + "e2"_e
+          dsml::initial_state + e1
+                    = A
+          ,A + e2
                     / [](Data& data){ data.called = true; }
-                    = "B"_s
+                    = B
 
   ); } };
 
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is("A"_s));
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(A));
   EXPECT_FALSE(data.called);
-  sm.process_event("e2"_e);
-  EXPECT_TRUE(sm.is("B"_s));
+  sm.process_event(e2);
+  EXPECT_TRUE(sm.is(B));
   EXPECT_TRUE(data.called);
 }
 
@@ -852,26 +851,25 @@ TEST(Sm, TransitionGuard)
     enum {F1, F2, F3} flag{F2};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e
+          dsml::initial_state + e1
                     [ ([](const Data& d){ return d.flag == Data::F1; }) ]
-                    = "A"_s
-          ,dsml::initial_state + "e1"_e
+                    = A
+          ,dsml::initial_state + e1
                     [ ([](const Data& d){ return d.flag == Data::F2; }) ]
-                    = "B"_s
-          ,dsml::initial_state + "e1"_e
+                    = B
+          ,dsml::initial_state + e1
                     [ ([](const Data& d){ return d.flag == Data::F3; }) ]
-                    = "C"_s
+                    = C
 
   ); } };
 
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is("B"_s));
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(B));
 }
 
 //--------------------------------------------------------------------------
@@ -880,23 +878,22 @@ TEST(Sm, TransitionGuardWithNotOperator)
 {
   bool flag{true};
 
-  using namespace dsml::literals;
   using namespace dsml::guard_operators;
 
   struct MyMachine { auto operator()() const noexcept {
           auto guard = [](const bool& flag_){ return flag_; };
           return dsml::make_transition_table(
-                          dsml::initial_state + "e1"_e [ not guard ] = "A"_s
+                          dsml::initial_state + e1 [ not guard ] = A
                       );
   } };
 
   dsml::Sm<MyMachine, bool> sm{flag};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
   EXPECT_TRUE(sm.is(dsml::initial_state));
   flag = false;
-  sm.process_event("e1"_e);
-  EXPECT_TRUE(sm.is("A"_s));
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(A));
 }
 
 //--------------------------------------------------------------------------
@@ -909,14 +906,13 @@ TEST(Sm, TransitionGuardWithAndOperator)
     bool flag2{false};
   };
 
-  using namespace dsml::literals;
   using namespace dsml::guard_operators;
 
   struct MyMachine { auto operator()() const noexcept {
           auto guard1 = [](Data& d){ return d.flag1; };
           auto guard2 = [](Data& d){ return d.flag2; };
           return dsml::make_transition_table(
-                      dsml::initial_state + "e1"_e [ guard1 and guard2 ] = "A"_s
+                      dsml::initial_state + e1 [ guard1 and guard2 ] = A
                   );
   } };
 
@@ -925,7 +921,7 @@ TEST(Sm, TransitionGuardWithAndOperator)
     data.flag1 = false;
     data.flag2 = false;
     dsml::Sm<MyMachine, Data> sm{data};
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
     EXPECT_TRUE(sm.is(dsml::initial_state));
   }
   {
@@ -933,7 +929,7 @@ TEST(Sm, TransitionGuardWithAndOperator)
     dsml::Sm<MyMachine, Data> sm{data};
     data.flag1 = true;
     data.flag2 = false;
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
     EXPECT_TRUE(sm.is(dsml::initial_state));
   }
   {
@@ -941,7 +937,7 @@ TEST(Sm, TransitionGuardWithAndOperator)
     dsml::Sm<MyMachine, Data> sm{data};
     data.flag1 = false;
     data.flag2 = true;
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
     EXPECT_TRUE(sm.is(dsml::initial_state));
   }
   {
@@ -949,8 +945,8 @@ TEST(Sm, TransitionGuardWithAndOperator)
     dsml::Sm<MyMachine, Data> sm{data};
     data.flag1 = true;
     data.flag2 = true;
-    sm.process_event("e1"_e);
-    EXPECT_TRUE(sm.is("A"_s));
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
   }
 }
 
@@ -964,14 +960,13 @@ TEST(Sm, TransitionGuardWithOrOperator)
     bool flag2{false};
   };
 
-  using namespace dsml::literals;
   using namespace dsml::guard_operators;
 
   struct MyMachine { auto operator()() const noexcept {
           auto guard1 = [](const Data& d){ return d.flag1; };
           auto guard2 = [](const Data& d){ return d.flag2; };
           return dsml::make_transition_table(
-                      dsml::initial_state + "e1"_e [ guard1 or guard2 ] = "A"_s
+                      dsml::initial_state + e1 [ guard1 or guard2 ] = A
                   );
   } };
 
@@ -980,7 +975,7 @@ TEST(Sm, TransitionGuardWithOrOperator)
     data.flag1 = false;
     data.flag2 = false;
     dsml::Sm<MyMachine, Data> sm{data};
-    sm.process_event("e1"_e);
+    sm.process_event(e1);
     EXPECT_TRUE(sm.is(dsml::initial_state));
   }
   {
@@ -988,24 +983,24 @@ TEST(Sm, TransitionGuardWithOrOperator)
     dsml::Sm<MyMachine, Data> sm{data};
     data.flag1 = true;
     data.flag2 = false;
-    sm.process_event("e1"_e);
-    EXPECT_TRUE(sm.is("A"_s));
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
   }
   {
     Data data{};
     dsml::Sm<MyMachine, Data> sm{data};
     data.flag1 = false;
     data.flag2 = true;
-    sm.process_event("e1"_e);
-    EXPECT_TRUE(sm.is("A"_s));
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
   }
   {
     Data data{};
     dsml::Sm<MyMachine, Data> sm{data};
     data.flag1 = true;
     data.flag2 = true;
-    sm.process_event("e1"_e);
-    EXPECT_TRUE(sm.is("A"_s));
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
   }
 }
 
@@ -1018,25 +1013,24 @@ TEST(Sm, AnonymousTransitionGuard)
     enum {F1, F2, F3} flag{F2};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state
                     [ ([](const Data& d){ return d.flag == Data::F1; }) ]
-                    = "A"_s
+                    = A
           ,dsml::initial_state
                     [ ([](const Data& d){ return d.flag == Data::F2; }) ]
-                    = "B"_s
+                    = B
           ,dsml::initial_state
                     [ ([](const Data& d){ return d.flag == Data::F3; }) ]
-                    = "C"_s
+                    = C
 
   ); } };
 
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  EXPECT_TRUE(sm.is("B"_s));
+  EXPECT_TRUE(sm.is(B));
 }
 
 //--------------------------------------------------------------------------
@@ -1045,21 +1039,20 @@ TEST(Sm, TransitionGuardAndAction)
 {
   using V = std::vector<int>;
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-          , "A"_s + "e1"_e [ false_guard ] / ([](V& v){v.push_back(1);}) = "B"_s
-          , "A"_s + "e1"_e [ true_guard ] / ([](V& v){v.push_back(2);}) = "C"_s
+          dsml::initial_state = A
+          , A + e1 [ false_guard ] / ([](V& v){v.push_back(1);}) = B
+          , A + e1 [ true_guard ] / ([](V& v){v.push_back(2);}) = C
 
   ); } };
 
   V calls{};
   dsml::Sm<MyMachine, V> sm{calls};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
   EXPECT_EQ(std::vector<int>{2}, calls);
-  EXPECT_TRUE(sm.is("C"_s));
+  EXPECT_TRUE(sm.is(C));
 }
 
 //--------------------------------------------------------------------------
@@ -1068,21 +1061,20 @@ TEST(Sm, AnonymousTransitionGuardAndAction)
 {
   using V = std::vector<int>;
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-          , "A"_s [ false_guard ] / ([](V& v){v.push_back(1);}) = "B"_s
-          , "A"_s [ true_guard ] / ([](V& v){v.push_back(2);}) = "C"_s
+          dsml::initial_state = A
+          , A [ false_guard ] / ([](V& v){v.push_back(1);}) = B
+          , A [ true_guard ] / ([](V& v){v.push_back(2);}) = C
 
   ); } };
 
   V calls{};
   dsml::Sm<MyMachine, V> sm{calls};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
   EXPECT_EQ(std::vector<int>{2}, calls);
-  EXPECT_TRUE(sm.is("C"_s));
+  EXPECT_TRUE(sm.is(C));
 }
 
 //--------------------------------------------------------------------------
@@ -1104,38 +1096,37 @@ TEST(Sm, GuardAndActionAsMethodPointer)
     int x{0};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept {
 
     using dsml::callee;
     using namespace dsml::guard_operators;
 
     return dsml::make_transition_table(
-          dsml::initial_state = "A"_s
-          , "A"_s + "evt"_e
+          dsml::initial_state = A
+          , A + e1
                 [ callee(&Logic::guard) ]
                 / callee(&Logic::action)
-                = "B"_s
-          , "A"_s + "evt"_e
+                = B
+          , A + e1
                 [ not callee(&Logic::guard) ]
-                = "A"_s
-          , "A"_s + "evt"_e
+                = A
+          , A + e1
                 [ callee(&Logic::guard) and not callee(&Logic::guard) ]
-                = "A"_s
+                = A
   ); } };
 
   {
     Logic logic{};
     dsml::Sm<MyMachine, Logic> sm{logic};
-    sm.process_event("evt"_e);
-    EXPECT_TRUE(sm.is("A"_s));
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
   }
   {
     Logic logic{};
     dsml::Sm<MyMachine, Logic> sm{logic};
     logic.x = 5;
-    sm.process_event("evt"_e);
-    EXPECT_TRUE(sm.is("B"_s));
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(B));
     EXPECT_EQ(10, logic.x);
   }
 }
@@ -1150,33 +1141,32 @@ TEST(Sm, AnonymousTransitionsDynamicGuardsAndActions)
     std::vector<int> calls{};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-          , "A"_s
+          dsml::initial_state = A
+          , A
                     [ ([](const Data& d){return d.flag == Data::F1;}) ]
                     / ([](Data& d){
                           d.calls.push_back(1);
                           d.flag = Data::F2;
                         })
-                    = "B"_s
-          , "A"_s
+                    = B
+          , A
                     [ ([](const Data& d){return d.flag == Data::F2;}) ]
                     / ([](Data& d){
                           d.calls.push_back(2);
                           d.flag = Data::F3;
-                        }) = "C"_s
-          , "C"_s
+                        }) = C
+          , C
                     [ ([](const Data& d){return d.flag == Data::F2;}) ]
                     / ([](Data& d){
                           d.calls.push_back(3);
-                        }) = "D"_s
-          , "C"_s
+                        }) = D
+          , C
                     [ ([](const Data& d){return d.flag == Data::F3;}) ]
                     / ([](Data& d){
                           d.calls.push_back(4);
-                        }) = "E"_s
+                        }) = E
 
   ); } };
 
@@ -1184,7 +1174,7 @@ TEST(Sm, AnonymousTransitionsDynamicGuardsAndActions)
   dsml::Sm<MyMachine, Data> sm{d};
 
   EXPECT_EQ((std::vector<int>{{2, 4}}), d.calls);
-  EXPECT_TRUE(sm.is("E"_s));
+  EXPECT_TRUE(sm.is(E));
 }
 
 //--------------------------------------------------------------------------
@@ -1196,11 +1186,10 @@ TEST(Sm, OnEntry)
     bool called{false};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e"_e = "A"_s
-          , "A"_s + dsml::on_entry / [](Data& data){ data.called = true; }
+          dsml::initial_state + e1 = A
+          , A + dsml::on_entry / [](Data& data){ data.called = true; }
 
   ); } };
 
@@ -1208,8 +1197,8 @@ TEST(Sm, OnEntry)
   dsml::Sm<MyMachine, Data> sm{data};
 
   EXPECT_FALSE(data.called);
-  sm.process_event("e"_e);
-  EXPECT_TRUE(sm.is("A"_s));
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(A));
   EXPECT_TRUE(data.called);
 }
 
@@ -1222,11 +1211,10 @@ TEST(Sm, OnEntryOnExit)
     std::vector<int> calls{};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e"_e = "A"_s
-          , "A"_s + dsml::on_entry / [](Data& data){ data.calls.push_back(2); }
+          dsml::initial_state + e1 = A
+          , A + dsml::on_entry / [](Data& data){ data.calls.push_back(2); }
           , dsml::initial_state + dsml::on_exit / [](Data& data) { data.calls.push_back(1); }
 
   ); } };
@@ -1234,7 +1222,7 @@ TEST(Sm, OnEntryOnExit)
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  sm.process_event("e"_e);
+  sm.process_event(e1);
   EXPECT_EQ((std::vector<int>{{1, 2}}), data.calls);
 }
 
@@ -1247,11 +1235,10 @@ TEST(Sm, OnEntryOnExitAndActionBetween)
     std::vector<int> calls{};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e"_e / [](Data& data) { data.calls.push_back(0); } = "A"_s
-          , "A"_s + dsml::on_entry / [](Data& data){ data.calls.push_back(2); }
+          dsml::initial_state + e1 / [](Data& data) { data.calls.push_back(0); } = A
+          , A + dsml::on_entry / [](Data& data){ data.calls.push_back(2); }
           , dsml::initial_state + dsml::on_exit / [](Data& data) { data.calls.push_back(1); }
 
   ); } };
@@ -1259,7 +1246,7 @@ TEST(Sm, OnEntryOnExitAndActionBetween)
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  sm.process_event("e"_e);
+  sm.process_event(e1);
   EXPECT_EQ((std::vector<int>{{1, 0, 2}}), data.calls);
 }
 
@@ -1272,26 +1259,25 @@ TEST(Sm, OnEntryOnExitMultipleStates)
     std::vector<int> calls{};
   };
 
-  using namespace dsml::literals;
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = "A"_s
-          , "A"_s + "e2"_e = "B"_s
+          dsml::initial_state + e1 = A
+          , A + e2 = B
 
           , dsml::initial_state + dsml::on_entry / [](Data& data) { data.calls.push_back(0); }
           , dsml::initial_state + dsml::on_exit / [](Data& data) { data.calls.push_back(1); }
-          , "A"_s + dsml::on_entry / [](Data& data){ data.calls.push_back(2); }
-          , "A"_s + dsml::on_exit / [](Data& data){ data.calls.push_back(3); }
-          , "B"_s + dsml::on_entry / [](Data& data){ data.calls.push_back(4); }
-          , "B"_s + dsml::on_exit / [](Data& data){ data.calls.push_back(5); }
+          , A + dsml::on_entry / [](Data& data){ data.calls.push_back(2); }
+          , A + dsml::on_exit / [](Data& data){ data.calls.push_back(3); }
+          , B + dsml::on_entry / [](Data& data){ data.calls.push_back(4); }
+          , B + dsml::on_exit / [](Data& data){ data.calls.push_back(5); }
 
   ); } };
 
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
-  sm.process_event("e1"_e);
-  sm.process_event("e2"_e);
+  sm.process_event(e1);
+  sm.process_event(e2);
   EXPECT_EQ((std::vector<int>{{1, 2, 3, 4}}), data.calls);
 }
 
@@ -1299,10 +1285,9 @@ TEST(Sm, OnEntryOnExitMultipleStates)
 
 TEST(SmComposite, AnonymousTransitions_IsInTheSubStateInitialState)
 {
-  using namespace dsml::literals;
   struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "SubA"_s
+          dsml::initial_state = SubA
 
   ); } };
   struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
@@ -1313,61 +1298,58 @@ TEST(SmComposite, AnonymousTransitions_IsInTheSubStateInitialState)
   dsml::Sm<Composite> sm{};
 
   EXPECT_FALSE(sm.is(dsml::initial_state));
-  EXPECT_TRUE(sm.is_sub("SubA"_s, Sub{}));
+  EXPECT_TRUE(sm.is_sub(SubA, Sub{}));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(SmComposite, TransitionInComposite_IsInTheCompositeStateInitialState)
 {
-  using namespace dsml::literals;
   struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "SubA"_s
+          dsml::initial_state = SubA
 
   ); } };
   struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = dsml::State<Sub>{}
+          dsml::initial_state + e1 = dsml::State<Sub>{}
 
   ); } };
   dsml::Sm<Composite> sm{};
 
   EXPECT_TRUE(sm.is(dsml::initial_state));
-  EXPECT_FALSE(sm.is_sub("SubA"_s, Sub{}));
+  EXPECT_FALSE(sm.is_sub(SubA, Sub{}));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(SmComposite, TransitionInComposite_ProcessEvent_IsInTheSubStateA)
 {
-  using namespace dsml::literals;
   struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "SubA"_s
+          dsml::initial_state = SubA
 
   ); } };
   struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state + "e1"_e = dsml::State<Sub>{}
+          dsml::initial_state + e1 = dsml::State<Sub>{}
 
   ); } };
   dsml::Sm<Composite> sm{};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
 
   EXPECT_FALSE(sm.is(dsml::initial_state));
-  EXPECT_TRUE(sm.is_sub("SubA"_s, Sub{}));
+  EXPECT_TRUE(sm.is_sub(SubA, Sub{}));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(SmMultilevelComposite, AnonymousTransitions_IsInTheSubStateInitialState)
 {
-  using namespace dsml::literals;
   struct SubSub { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "SubA"_s
+          dsml::initial_state = SubA
 
   ); } };
   struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
@@ -1384,18 +1366,17 @@ TEST(SmMultilevelComposite, AnonymousTransitions_IsInTheSubStateInitialState)
 
   EXPECT_FALSE(sm.is(dsml::initial_state));
   EXPECT_FALSE(sm.is_sub(dsml::initial_state, Sub{}));
-  EXPECT_TRUE(sm.is_sub("SubA"_s, Sub{}, SubSub{}));
+  EXPECT_TRUE(sm.is_sub(SubA, Sub{}, SubSub{}));
 }
 
 //--------------------------------------------------------------------------
 
 TEST(SmMultilevelComposite, AnonymousTransitions_InAndOut)
 {
-  using namespace dsml::literals;
   struct SubSub { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "SubA"_s
-          , "SubA"_s = dsml::final_state
+          dsml::initial_state = SubA
+          , SubA = dsml::final_state
 
   ); } };
   struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
@@ -1417,7 +1398,7 @@ TEST(SmMultilevelComposite, AnonymousTransitions_InAndOut)
   EXPECT_FALSE(sm.is_sub(dsml::initial_state, Sub{}));
   EXPECT_FALSE(sm.is_sub(dsml::final_state, Sub{}));
   EXPECT_FALSE(sm.is_sub(dsml::initial_state, Sub{}, SubSub{}));
-  EXPECT_FALSE(sm.is_sub("SubA"_s, Sub{}, SubSub{}));
+  EXPECT_FALSE(sm.is_sub(SubA, Sub{}, SubSub{}));
   EXPECT_FALSE(sm.is_sub(dsml::final_state, Sub{}, SubSub{}));
 }
 
@@ -1430,23 +1411,22 @@ TEST(SmComposite, OnEntryOnExit)
     std::vector<int> calls{};
   };
 
-  using namespace dsml::literals;
   struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "SubA"_s
-          , "SubA"_s = dsml::final_state
-          , "SubA"_s + dsml::on_entry / [](Data& data) { data.calls.push_back(1); }
-          , "SubA"_s + dsml::on_exit / [](Data& data) { data.calls.push_back(2); }
+          dsml::initial_state = SubA
+          , SubA = dsml::final_state
+          , SubA + dsml::on_entry / [](Data& data) { data.calls.push_back(1); }
+          , SubA + dsml::on_exit / [](Data& data) { data.calls.push_back(2); }
 
   ); } };
   struct Composite { auto operator()() const noexcept { return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-          , "A"_s = dsml::State<Sub>{}
-          , dsml::State<Sub>{} = "B"_s
-          , "A"_s + dsml::on_entry / [](Data& data) { data.calls.push_back(3); }
-          , "A"_s + dsml::on_exit / [](Data& data) { data.calls.push_back(4); }
-          , "B"_s + dsml::on_entry / [](Data& data) { data.calls.push_back(5); }
+          dsml::initial_state = A
+          , A = dsml::State<Sub>{}
+          , dsml::State<Sub>{} = B
+          , A + dsml::on_entry / [](Data& data) { data.calls.push_back(3); }
+          , A + dsml::on_exit / [](Data& data) { data.calls.push_back(4); }
+          , B + dsml::on_entry / [](Data& data) { data.calls.push_back(5); }
 
   ); } };
 
@@ -1459,6 +1439,48 @@ TEST(SmComposite, OnEntryOnExit)
 //--------------------------------------------------------------------------
 
 TEST(SmMultilevelComposite, Mixture)
+{
+  struct Data
+  {
+    enum {F1, F2, F3} flag{F2};
+    std::vector<int> calls{};
+  };
+
+  struct SubSub { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1
+              / [](Data& d){ d.calls.push_back(1); }
+              = SubA
+          , SubA = dsml::final_state
+
+  ); } };
+  struct Sub { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<SubSub>{}
+          , dsml::State<SubSub>{} = A
+          , A [ false_guard ] / ([](Data& d){d.calls.push_back(2);}) = B
+          , A [ true_guard ] / ([](Data& d){d.calls.push_back(3);}) = C
+          , B = dsml::final_state
+          , C = dsml::final_state
+
+  ); } };
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state = dsml::State<Sub>{}
+
+  ); } };
+
+  Data data{};
+  dsml::Sm<MyMachine, Data> sm{data};
+
+  sm.process_event(e1);
+  EXPECT_EQ((std::vector<int>{{1, 3}}), data.calls);
+}
+
+//--------------------------------------------------------------------------
+
+#ifndef _MSC_VER
+TEST(SmMultilevelCompositeWithUDL, Mixture)
 {
   struct Data
   {
@@ -1499,6 +1521,7 @@ TEST(SmMultilevelComposite, Mixture)
   sm.process_event("e1"_e);
   EXPECT_EQ((std::vector<int>{{1, 3}}), data.calls);
 }
+#endif
 
 //==========================================================================
 
@@ -1509,7 +1532,7 @@ struct MyObserver : dsml::Observer
   template <typename TEvent>
   void event()
   {
-    log.push_back(TEvent::base_t::c_str());
+    log.push_back(TEvent::c_str());
   }
 
   template <typename TGuard>
@@ -1527,9 +1550,9 @@ struct MyObserver : dsml::Observer
   template <typename TSrcState, typename TDstState>
   void state_change()
   {
-    log.push_back(std::string{TSrcState::base_t::c_str()} +
+    log.push_back(std::string{TSrcState::c_str()} +
                   "->" +
-                  std::string{TDstState::base_t::c_str()});
+                  std::string{TDstState::c_str()});
   }
 };
 
@@ -1541,24 +1564,24 @@ TEST(Sm, Observer)
   struct MyMachine { auto operator()() const noexcept {
     return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-        , "A"_s + "e1"_e [ false_guard ] / no_action = "B"_s
-        , "A"_s + "e1"_e [ true_guard ] / no_action = "C"_s
+          dsml::initial_state = A
+        , A + e1 [ false_guard ] / no_action = B
+        , A + e1 [ true_guard ] / no_action = C
 
   ); } };
 
   MyObserver observer{};
   dsml::Sm<MyMachine, MyObserver> sm{observer};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
   EXPECT_EQ((std::vector<std::string>{
             "anonymous",
-            "initial->A",
+            "initial->A_",
             "anonymous",
-            "e1",
+            "e1_",
             "guard 1",
             "action",
-            "A->C",
+            "A_->C_",
             "anonymous"
           }), observer.log);
 }
@@ -1586,11 +1609,11 @@ TEST(Sm, ObserverAndDependency)
   struct MyMachine { auto operator()() const noexcept {
     return dsml::make_transition_table(
 
-          dsml::initial_state = "A"_s
-        , "A"_s + "e1"_e
+          dsml::initial_state = A
+        , A + e1
               [ dsml::callee(&Logic::guard) ]
               / dsml::callee(&Logic::action)
-              = "B"_s
+              = B
 
   ); } };
 
@@ -1598,15 +1621,15 @@ TEST(Sm, ObserverAndDependency)
   Logic logic{};
   dsml::Sm<MyMachine, MyObserver, Logic> sm{observer, logic};
 
-  sm.process_event("e1"_e);
+  sm.process_event(e1);
   EXPECT_EQ((std::vector<std::string>{
             "anonymous",
-            "initial->A",
+            "initial->A_",
             "anonymous",
-            "e1",
+            "e1_",
             "guard 1",
             "action",
-            "A->B",
+            "A_->B_",
             "anonymous"
           }), observer.log);
   EXPECT_EQ(10, logic.x);
