@@ -214,8 +214,27 @@ struct PrependType<_T0, std::tuple<_T...>>
 template<typename... _T>
 using PrependType_t = typename PrependType<_T...>::type;
 
+template<typename...>
+struct ConcatTuplesImpl;
+template<>
+struct ConcatTuplesImpl<std::tuple<>>
+{
+  using type = std::tuple<>;
+};
+template<typename... _Ts>
+struct ConcatTuplesImpl<std::tuple<_Ts...>>
+{
+  using type = std::tuple<_Ts...>;
+};
+template<typename... _T0s, typename... _Ts, typename... _Rest>
+struct ConcatTuplesImpl<std::tuple<_T0s...>, std::tuple<_Ts...>, _Rest...>
+{
+  using type = typename ConcatTuplesImpl<std::tuple<_T0s..., _Ts...>, _Rest...>::type;
+};
+
 template<typename... _Tuples>
-using ConcatTuples_t = decltype(std::tuple_cat(std::declval<_Tuples>()...));
+using ConcatTuples_t = typename ConcatTuplesImpl<_Tuples...>::type;
+
 /// concatenate subtuples
 template<typename>
 struct FlattenTuple;
