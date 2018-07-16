@@ -60,8 +60,10 @@ struct IsEvent<Event<_T>> : std::true_type {};
 namespace detail {
 //==========================================================================
 
-inline bool always_true_guard() { return true; }
-inline void no_action() {}
+namespace {
+  const auto always_true_guard = [](){ return true; };
+  const auto no_action = [](){};
+}
 
 //==========================================================================
 
@@ -423,7 +425,7 @@ struct NotifyObserverImpl<false>
   static void guard(_Deps& deps, const _Guard& grd, const bool result)
   {
     if (!std::is_same<std::decay_t<_Guard>,
-                      std::decay_t<decltype(&always_true_guard)>>::value)
+                      std::decay_t<decltype(always_true_guard)>>::value)
     {
       get_observer(deps).template guard<std::decay_t<_Guard>>(grd, result);
     }
@@ -433,7 +435,7 @@ struct NotifyObserverImpl<false>
   static void action(_Deps& deps, const _Action& actn)
   {
     if (!std::is_same<std::decay_t<_Action>,
-                      std::decay_t<decltype(&no_action)>>::value)
+                      std::decay_t<decltype(no_action)>>::value)
     {
       get_observer(deps).template action<std::decay_t<_Action>>(actn);
     }
@@ -879,8 +881,8 @@ struct Event
   auto operator/(_ActionF action) const noexcept
   {
     detail::check_is_action<_ActionF>();
-    return EventBundle<Event<_T>, decltype(&detail::always_true_guard), _ActionF>{
-                                &detail::always_true_guard, std::move(action)
+    return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
+                                detail::always_true_guard, std::move(action)
                               };
   }
 
@@ -888,8 +890,8 @@ struct Event
   auto operator[](_GuardF guard) const noexcept
   {
     detail::check_is_guard<_GuardF>();
-    return EventBundle<Event<_T>, _GuardF, decltype(&detail::no_action)>{
-                std::move(guard), &detail::no_action
+    return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
+                std::move(guard), detail::no_action
               };
   }
 
@@ -1178,10 +1180,10 @@ struct State
   auto operator+(const Event<_E>&) const noexcept
   {
     using eb_t = EventBundle<Event<_E>,
-                                decltype(&detail::always_true_guard),
-                                decltype(&detail::no_action)>;
+                                decltype(detail::always_true_guard),
+                                decltype(detail::no_action)>;
     return StateTransition<State<base_t>, eb_t>{
-                  eb_t{&detail::always_true_guard, &detail::no_action}
+                  eb_t{detail::always_true_guard, detail::no_action}
                 };
   }
 
