@@ -17,6 +17,14 @@
 static const auto true_guard = [](){ return true; };
 static const auto false_guard = [](){ return false; };
 static const auto no_action = [](){};
+static bool true_guard_func() { return true; }
+static void no_action_func() {}
+
+void callable1() {}
+void callable1noexcept() noexcept {}
+auto callable2(double) { return std::make_tuple(4, 5.9f); }
+
+//==========================================================================
 
 #define STATE(x) static constexpr auto x = dsml::State<struct x##_>{}
 STATE(A);
@@ -218,11 +226,25 @@ TEST(TypeTraits, IsEvent)
   EXPECT_TRUE(dsml::IsEvent<dsml::Event<struct S>>::value);
 }
 
-//==========================================================================
+TEST(TypeTraits, IsGuard)
+{
+  EXPECT_FALSE(dsml::detail::IsGuard<int>::value);
+  const auto lambda_val = dsml::detail::IsGuard<decltype(true_guard)>::value;
+  EXPECT_TRUE(lambda_val);
+  const auto func_val = dsml::detail::IsGuard<decltype(&true_guard_func)>::value;
+  EXPECT_TRUE(func_val);
+}
 
-void callable1() {}
-void callable1noexcept() noexcept {}
-auto callable2(double) { return std::make_tuple(4, 5.9f); }
+TEST(TypeTraits, IsAction)
+{
+  EXPECT_FALSE(dsml::detail::IsAction<int>::value);
+  const auto lambda_val = dsml::detail::IsAction<decltype(no_action)>::value;
+  EXPECT_TRUE(lambda_val);
+  const auto func_val = dsml::detail::IsAction<decltype(&no_action_func)>::value;
+  EXPECT_TRUE(func_val);
+}
+
+//==========================================================================
 
 TEST(Callable, Functions)
 {

@@ -60,8 +60,8 @@ struct IsEvent<Event<_T>> : std::true_type {};
 namespace detail {
 //==========================================================================
 
-static const auto always_true_guard = [](){ return true; };
-static const auto no_action = [](){};
+inline bool always_true_guard() { return true; }
+inline void no_action() {}
 
 //==========================================================================
 
@@ -404,7 +404,7 @@ struct NotifyObserverImpl<false>
   static void guard(_Deps& deps, const _Guard& grd, const bool result)
   {
     if (!std::is_same<std::decay_t<_Guard>,
-                      std::decay_t<decltype(always_true_guard)>>::value)
+                      std::decay_t<decltype(&always_true_guard)>>::value)
     {
       get_observer(deps).template guard<std::decay_t<_Guard>>(grd, result);
     }
@@ -414,7 +414,7 @@ struct NotifyObserverImpl<false>
   static void action(_Deps& deps, const _Action& actn)
   {
     if (!std::is_same<std::decay_t<_Action>,
-                      std::decay_t<decltype(no_action)>>::value)
+                      std::decay_t<decltype(&no_action)>>::value)
     {
       get_observer(deps).template action<std::decay_t<_Action>>(actn);
     }
@@ -494,8 +494,12 @@ struct Callable : CallableImpl<_F> {};
 template<typename _T, typename = void>
 struct IsCallable
 {
-  static constexpr bool value{std::is_function<_T>::value ||
-                              std::is_member_function_pointer<_T>::value};
+  static constexpr bool value{
+      (std::is_pointer<_T>::value &&
+          std::is_function<std::remove_pointer_t<_T>>::value)
+      ||
+      std::is_member_function_pointer<_T>::value
+    };
 };
 
 template<typename _T>
@@ -873,8 +877,8 @@ struct Event
   auto operator/(_ActionF action) const noexcept
   {
     detail::check_is_action<_ActionF>();
-    return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
-                                detail::always_true_guard, std::move(action)
+    return EventBundle<Event<_T>, decltype(&detail::always_true_guard), _ActionF>{
+                                &detail::always_true_guard, std::move(action)
                               };
   }
 
@@ -882,8 +886,8 @@ struct Event
   auto operator[](_GuardF guard) const noexcept
   {
     detail::check_is_guard<_GuardF>();
-    return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
-                std::move(guard), detail::no_action
+    return EventBundle<Event<_T>, _GuardF, decltype(&detail::no_action)>{
+                std::move(guard), &detail::no_action
               };
   }
 
@@ -989,6 +993,7 @@ template<typename...>
 struct HasTableOperatorHelper;
 template<typename _T>
 struct HasTableOperatorHelper<TransitionTable<_T>> {};
+
 /// type trait to detect a SM declaration
 /// (a struct with operator() returning a table)
 template <typename T, typename = int>
@@ -1171,10 +1176,10 @@ struct State
   auto operator+(const Event<_E>&) const noexcept
   {
     using eb_t = EventBundle<Event<_E>,
-                                decltype(detail::always_true_guard),
-                                decltype(detail::no_action)>;
+                                decltype(&detail::always_true_guard),
+                                decltype(&detail::no_action)>;
     return StateTransition<State<base_t>, eb_t>{
-                  eb_t{detail::always_true_guard, detail::no_action}
+                  eb_t{&detail::always_true_guard, &detail::no_action}
                 };
   }
 
