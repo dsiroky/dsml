@@ -775,23 +775,6 @@ using CollectStates_t = UniqueTypesTuple_t<ConcatTuples_t<
 
 //--------------------------------------------------------------------------
 
-template<typename _Row>
-using GuardArgumentList_t =
-            typename Callable<typename _Row::guard_t>::args_t;
-template<typename _Row>
-using ActionArgumentList_t =
-            typename Callable<typename _Row::action_t>::args_t;
-
-/// Collect required parameter types (dependencies) from actions and guards
-/// signatures.
-template<typename _Rows>
-using CollectRequiredDepTypes_t = UniqueTypesTuple_t<ConcatTuples_t<
-      Apply_t<GuardArgumentList_t, _Rows>,
-      Apply_t<ActionArgumentList_t, _Rows>
-    >>;
-
-//--------------------------------------------------------------------------
-
 template<typename _Rows, typename _Event>
 struct RowsWithEventIndices
 {
@@ -1322,8 +1305,6 @@ struct TransitionTable
 {
   using states_t = detail::CollectStates_t<_Rows>;
   using rows_t = _Rows;
-  /// just plain types, no references
-  using deps_t = detail::CollectRequiredDepTypes_t<rows_t>;
   using submachine_types_t = detail::CollectSubmachineTypes_t<states_t>;
 
   static_assert(std::tuple_size<states_t>::value > 0,
@@ -1398,8 +1379,6 @@ public:
 private:
   using deps_t = std::tuple<_Deps&...>;
   using transition_table_t = decltype(detail::expand_table<_MachineDecl>());
-  using required_types_t = detail::CollectRequiredDepTypes_t<
-                                          typename transition_table_t::rows_t>;
 
   static constexpr auto states_count =
                   std::tuple_size<typename transition_table_t::states_t>::value;
