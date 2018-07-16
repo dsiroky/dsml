@@ -24,10 +24,16 @@ env.AppendUnique(
 if env["USE_MSVC"]:
     env.AppendUnique(
         CCFLAGS=[
-            "/std:c++17",
+            "/std:c++14",
             "/Zm2000",
+            "/W4",
+            "/WX",
             "/wd4503", # "decorated name length exceeded, name was truncated"
             "/wd4800", # "forcing value to bool, performance warning"
+            # some occurences due to usage of empty tuples
+            "/wd4100", # "unreferenced formal parameter"
+            # if constexpr is C++17 however MSVC complains even in C++14
+            "/wd4127", # "conditional expression is constant"
             ],
         CXXFLAGS=[
             "/EHa",

@@ -14,11 +14,11 @@
 
 //==========================================================================
 
-static const auto true_guard = [](){ return true; };
-static const auto false_guard = [](){ return false; };
-static const auto no_action = [](){};
-static bool true_guard_func() { return true; }
-static void no_action_func() {}
+const auto true_guard = [](){ return true; };
+const auto false_guard = [](){ return false; };
+const auto no_action = [](){};
+bool true_guard_func() { return true; }
+void no_action_func() {}
 
 void callable1() {}
 void callable1noexcept() noexcept {}
@@ -919,7 +919,7 @@ TEST(Sm, TransitionGuardWithNotOperator)
   struct MyMachine { auto operator()() const noexcept {
           auto guard = [](const bool& flag_){ return flag_; };
           return dsml::make_transition_table(
-                          dsml::initial_state + e1 [ not guard ] = A
+                          dsml::initial_state + e1 [ ! guard ] = A
                       );
   } };
 
@@ -948,7 +948,7 @@ TEST(Sm, TransitionGuardWithAndOperator)
           auto guard1 = [](Data& d){ return d.flag1; };
           auto guard2 = [](Data& d){ return d.flag2; };
           return dsml::make_transition_table(
-                      dsml::initial_state + e1 [ guard1 and guard2 ] = A
+                      dsml::initial_state + e1 [ guard1 && guard2 ] = A
                   );
   } };
 
@@ -1002,7 +1002,7 @@ TEST(Sm, TransitionGuardWithOrOperator)
           auto guard1 = [](const Data& d){ return d.flag1; };
           auto guard2 = [](const Data& d){ return d.flag2; };
           return dsml::make_transition_table(
-                      dsml::initial_state + e1 [ guard1 or guard2 ] = A
+                      dsml::initial_state + e1 [ guard1 || guard2 ] = A
                   );
   } };
 
@@ -1144,10 +1144,10 @@ TEST(Sm, GuardAndActionAsMethodPointer)
                 / callee(&Logic::action)
                 = B
           , A + e1
-                [ not callee(&Logic::guard) ]
+                [ ! callee(&Logic::guard) ]
                 = A
           , A + e1
-                [ callee(&Logic::guard) and not callee(&Logic::guard) ]
+                [ callee(&Logic::guard) && !callee(&Logic::guard) ]
                 = A
   ); } };
 
@@ -1610,6 +1610,18 @@ TEST(Sm, Observer)
   dsml::Sm<MyMachine, MyObserver> sm{observer};
 
   sm.process_event(e1);
+#ifdef _MSC_VER
+  EXPECT_EQ((std::vector<std::string>{
+            "anonymous",
+            "initial->struct A_",
+            "anonymous",
+            "struct e1_",
+            "guard 1",
+            "action",
+            "struct A_->struct C_",
+            "anonymous"
+          }), observer.log);
+#else
   EXPECT_EQ((std::vector<std::string>{
             "anonymous",
             "initial->A_",
@@ -1620,6 +1632,7 @@ TEST(Sm, Observer)
             "A_->C_",
             "anonymous"
           }), observer.log);
+#endif
 }
 
 //--------------------------------------------------------------------------
@@ -1658,6 +1671,18 @@ TEST(Sm, ObserverAndDependency)
   dsml::Sm<MyMachine, MyObserver, Logic> sm{observer, logic};
 
   sm.process_event(e1);
+#ifdef _MSC_VER
+  EXPECT_EQ((std::vector<std::string>{
+            "anonymous",
+            "initial->struct A_",
+            "anonymous",
+            "struct e1_",
+            "guard 1",
+            "action",
+            "struct A_->struct B_",
+            "anonymous"
+          }), observer.log);
+#else
   EXPECT_EQ((std::vector<std::string>{
             "anonymous",
             "initial->A_",
@@ -1668,6 +1693,7 @@ TEST(Sm, ObserverAndDependency)
             "A_->B_",
             "anonymous"
           }), observer.log);
+#endif
   EXPECT_EQ(10, logic.x);
 }
 
