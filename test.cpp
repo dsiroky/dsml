@@ -305,7 +305,11 @@ TEST(GetTypeName, ReturnsString)
 {
   EXPECT_STREQ("int", dsml::get_type_name<int>());
   EXPECT_STREQ("float", dsml::get_type_name<float>());
+#ifdef _MSC_VER
+  EXPECT_STREQ("class std::tuple<char>", dsml::get_type_name<std::tuple<char>>());
+#else
   EXPECT_STREQ("std::tuple<char>", dsml::get_type_name<std::tuple<char>>());
+#endif
 }
 
 //==========================================================================

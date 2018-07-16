@@ -758,6 +758,7 @@ using GuardArgumentList_t =
 template<typename _Row>
 using ActionArgumentList_t =
             typename Callable<typename _Row::event_bundle_t::action_t>::args_t;
+
 /// Collect required parameter types (dependencies) from actions and guards
 /// signatures.
 template<typename _Rows>
@@ -1413,8 +1414,8 @@ auto callee(_F f)
 template <typename T>
 auto get_type_name() {
 #if defined(_MSC_VER)
-  using seq_t = std::make_index_sequence<sizeof(__FUNCSIG__)>;
-  return detail::get_type_name_impl<T, 0>(__FUNCSIG__, seq_t{});
+  using seq_t = std::make_index_sequence<sizeof(__FUNCSIG__) - 33 - 8>;
+  return detail::get_type_name_impl<T, 33>(__FUNCSIG__, seq_t{});
 #elif defined(__clang__)
   using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 32 - 2>;
   return detail::get_type_name_impl<T, 32>(__PRETTY_FUNCTION__, seq_t{});
