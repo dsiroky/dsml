@@ -196,8 +196,8 @@ struct HasType<_T, std::tuple<_Us...>> : disjunction<std::is_same<_T, _Us>...> {
 
 //--------------------------------------------------------------------------
 
-template<typename _T>
-struct RemoveFirstType { };
+template<typename...>
+struct RemoveFirstType;
 template<typename _T, typename... _Ts>
 struct RemoveFirstType<std::tuple<_T, _Ts...>>
 {
@@ -237,17 +237,6 @@ struct ConcatTuplesImpl<std::tuple<_T0s...>, std::tuple<_Ts...>, _Rest...>
 template<typename... _Tuples>
 using ConcatTuples_t = typename ConcatTuplesImpl<_Tuples...>::type;
 
-/// concatenate subtuples
-template<typename>
-struct FlattenTuple;
-template<typename... _Ts>
-struct FlattenTuple<std::tuple<_Ts...>>
-{
-  using type = ConcatTuples_t<_Ts...>;
-};
-template<typename _Tuple>
-using FlattenTuple_t = typename FlattenTuple<_Tuple>::type;
-
 template<typename... _T>
 struct UniqueTypesTuple;
 template<typename... _T>
@@ -256,11 +245,6 @@ template<>
 struct UniqueTypesTuple<std::tuple<>>
 {
   using type = std::tuple<>;
-};
-template<typename _T>
-struct UniqueTypesTuple<std::tuple<_T>>
-{
-  using type = std::tuple<_T>;
 };
 template<typename _T0, typename... _T>
 struct UniqueTypesTuple<std::tuple<_T0, _T...>>
@@ -340,10 +324,6 @@ using TupleIndexFilter_t = typename TupleIndexFilter<_Filter, _Tuple,
 
 template<size_t _I, typename... _Ts>
 struct TypeIndex_impl;
-template<size_t _I, typename _T>
-struct TypeIndex_impl<_I, _T>
-{
-};
 template<size_t _I, typename _T, typename _T0, typename... _Ts>
 struct TypeIndex_impl<_I, _T, _T0, _Ts...>
 {
@@ -358,8 +338,6 @@ struct TypeIndex;
 template<typename _T, typename... _Ts>
 struct TypeIndex<_T, std::tuple<_Ts...>>
 {
-  static_assert(HasType<_T, std::tuple<_Ts...>>::value,
-                "type not present");
   static constexpr auto value = TypeIndex_impl<0, _T, _Ts...>::value;
 };
 
@@ -832,7 +810,7 @@ struct GetCurrentStateNameImpl<_AllStates, std::tuple<_S0, _Ss...>>
   {
     if (n == TypeIndex<_S0, _AllStates>::value)
     {
-      return get_type_name<typename _S0::base_t>();
+      return detail::c_str<typename _S0::base_t>();
     } else {
       return GetCurrentStateNameImpl<_AllStates, std::tuple<_Ss...>>{}(n);
     }
