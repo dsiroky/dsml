@@ -23,6 +23,13 @@ void no_action_func() {}
 void callable1() {}
 void callable1noexcept() noexcept {}
 auto callable2(double) { return std::make_tuple(4, 5.9f); }
+const auto const_callable2_ptr = &callable2;
+
+/// just a warning silencer
+void dont_warn_about_not_needed()
+{
+  (void) const_callable2_ptr;
+}
 
 //==========================================================================
 
@@ -260,6 +267,10 @@ TEST(Callable, Functions)
                 dsml::detail::Callable<decltype(&callable2)>::ret_t>::value));
   EXPECT_TRUE((std::is_same<std::tuple<double>,
                 dsml::detail::Callable<decltype(&callable2)>::args_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<int, float>,
+                dsml::detail::Callable<decltype(const_callable2_ptr)>::ret_t>::value));
+  EXPECT_TRUE((std::is_same<std::tuple<double>,
+                dsml::detail::Callable<decltype(const_callable2_ptr)>::args_t>::value));
 }
 
 //--------------------------------------------------------------------------

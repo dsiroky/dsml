@@ -476,6 +476,8 @@ struct CallableImpl<_Ret(_Args...)>
 };
 template<typename _Ret, typename... _Args>
 struct CallableImpl<_Ret(*)(_Args...)> : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename... _Args>
+struct CallableImpl<_Ret(* const)(_Args...)> : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
 struct CallableImpl<_Ret(_T::*)(_Args...)>
   : CallableImpl<_Ret(_Args...)> {};
