@@ -29,7 +29,7 @@ namespace dsml {
 
 template<typename>
 struct TransitionTable;
-template<typename, typename, typename>
+template<typename, typename, typename, typename, typename>
 struct TableRow;
 template<typename>
 struct State;
@@ -754,10 +754,10 @@ using CollectStates_t = UniqueTypesTuple_t<ConcatTuples_t<
 
 template<typename _Row>
 using GuardArgumentList_t =
-            typename Callable<typename _Row::event_bundle_t::guard_t>::args_t;
+            typename Callable<typename _Row::guard_t>::args_t;
 template<typename _Row>
 using ActionArgumentList_t =
-            typename Callable<typename _Row::event_bundle_t::action_t>::args_t;
+            typename Callable<typename _Row::action_t>::args_t;
 
 /// Collect required parameter types (dependencies) from actions and guards
 /// signatures.
@@ -773,7 +773,7 @@ template<typename _Rows, typename _Event>
 struct RowsWithEventIndices
 {
   template<typename _Row>
-  struct filter_t : std::is_same<typename std::decay_t<_Row>::event_bundle_t::event_t, _Event> {};
+  struct filter_t : std::is_same<typename std::decay_t<_Row>::event_t, _Event> {};
   using indices_t = TupleIndexFilter_t<filter_t, _Rows>;
 };
 
@@ -900,7 +900,7 @@ namespace detail {
 template<typename _Rows, typename _Deps>
 static void call_row_action(const _Rows& rows, _Deps& deps, std::true_type)
 {
-  call(std::get<0>(rows).m_event_bundle.m_action, deps);
+  call(std::get<0>(rows).m_action, deps);
 }
 
 template<typename _Rows, typename _Deps>
@@ -931,7 +931,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
   {
     using row_t = std::remove_const_t<std::remove_reference_t<_Row>>;
     const auto& row = std::get<_Row>(rows);
-    const auto& guard = row.m_event_bundle.m_guard;
+    const auto& guard = row.m_guard;
     bool processed{false};
     constexpr auto source_state =
                         state_number_v<typename row_t::src_state_t, _AllStates>;
@@ -954,9 +954,9 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                             std::false_type, std::true_type>{});
         }
         detail::NotifyObserver<_Deps>
-                  ::template action<_Deps, decltype(row.m_event_bundle.m_action)>
-                                              (deps, row.m_event_bundle.m_action);
-        call(row.m_event_bundle.m_action, deps);
+                  ::template action<_Deps, decltype(row.m_action)>
+                                              (deps, row.m_action);
+        call(row.m_action, deps);
         if (source_state != destination_state)
         {
           state = destination_state;
@@ -1047,9 +1047,11 @@ auto wrap_row(const _Row& row)
 {
   return TableRow<
               typename WrapState<typename _Row::src_state_t, _Tag>::type,
-              typename _Row::event_bundle_t,
+              typename _Row::event_t,
+              typename _Row::guard_t,
+              typename _Row::action_t,
               typename WrapState<typename _Row::dst_state_t, _Tag>::type
-            >(row.m_event_bundle);
+            >(row.m_guard, row.m_action);
 }
 
 template<typename _Tag, typename _Rows, size_t... _Is>
@@ -1084,10 +1086,12 @@ auto wrap_entry_exit_row(const _Row& row)
   return TableRow<
               // map substate as a source state to its final state
               typename WrapSubPoint<typename _Row::src_state_t, detail::final_t>::type,
-              typename _Row::event_bundle_t,
+              typename _Row::event_t,
+              typename _Row::guard_t,
+              typename _Row::action_t,
               // map substate as a destination state to its initial state
               typename WrapSubPoint<typename _Row::dst_state_t, detail::initial_t>::type
-            >(row.m_event_bundle);
+            >(row.m_guard, row.m_action);
 }
 
 template<typename _Rows, size_t... _Is>
@@ -1233,19 +1237,28 @@ private:
 
 //==========================================================================
 
-template<typename _SrcS, typename _EventBundle, typename _DstS>
+template<typename _SrcS, typename _Event, typename _Guard, typename _Action,
+          typename _DstS>
 struct TableRow
 {
   static_assert(IsState<_SrcS>::value, "");
+  static_assert(IsEvent<_Event>::value, "");
+  static_assert(detail::IsAction<_Action>::value, "");
+  static_assert(detail::IsGuard<_Guard>::value, "");
   static_assert(IsState<_DstS>::value, "");
 
   using src_state_t = _SrcS;
+  using event_t = _Event;
+  using guard_t = _Guard;
+  using action_t = _Action;
   using dst_state_t = _DstS;
-  using event_bundle_t = _EventBundle;
 
-  TableRow(_EventBundle event_bundle) : m_event_bundle{event_bundle} {}
+  TableRow(_Guard guard, _Action action)
+    : m_guard{std::move(guard)}, m_action{std::move(action)}
+  {}
 
-  const _EventBundle m_event_bundle{};
+  const _Guard m_guard;
+  const _Action m_action;
 };
 
 template<typename _SrcS, typename _EventBundle>
@@ -1258,7 +1271,12 @@ struct StateTransition
   template<typename _DstS>
   auto operator=(const State<_DstS>&) const noexcept
   {
-    return TableRow<_SrcS, _EventBundle, State<_DstS>>{m_event_bundle};
+    return TableRow<_SrcS,
+                    typename _EventBundle::event_t,
+                    typename _EventBundle::guard_t,
+                    typename _EventBundle::action_t,
+                    State<_DstS>>
+                {m_event_bundle.m_guard, m_event_bundle.m_action};
   }
 
   template<typename _F>
