@@ -1,16 +1,30 @@
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated"
-#pragma GCC diagnostic ignored "-Wconversion"
+#ifndef _MSC_VER
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wdeprecated"
+  #pragma GCC diagnostic ignored "-Wconversion"
+#endif
+
 #include "gtest/gtest.h"
-#pragma GCC diagnostic pop
+
+#ifndef _MSC_VER
+  #pragma GCC diagnostic pop
+#endif
 
 #include "dsml.hpp"
 
 //==========================================================================
 
-static const auto true_guard = [](){ return true; };
-static const auto false_guard = [](){ return false; };
-static const auto no_action = [](){};
+const auto true_guard = [](){ return true; };
+const auto false_guard = [](){ return false; };
+const auto no_action = [](){};
+bool true_guard_func() { return true; }
+void no_action_func() {}
+
+void callable1() {}
+void callable1noexcept() noexcept {}
+auto callable2(double) { return std::make_tuple(4, 5.9f); }
+
+//==========================================================================
 
 #define STATE(x) static constexpr auto x = dsml::State<struct x##_>{}
 STATE(A);
@@ -199,24 +213,38 @@ TEST(TypeIndex, TypePresent_ValueIsIndex)
 
 TEST(TypeTraits, IsState)
 {
-  EXPECT_FALSE(dsml::is_state_v<int>);
-  EXPECT_TRUE(dsml::is_state_v<dsml::State<int>>);
-  EXPECT_TRUE(dsml::is_state_v<dsml::State<struct S>>);
-  EXPECT_TRUE((dsml::is_state_v<dsml::State<struct S>>));
+  EXPECT_FALSE(dsml::IsState<int>::value);
+  EXPECT_TRUE(dsml::IsState<dsml::State<int>>::value);
+  EXPECT_TRUE(dsml::IsState<dsml::State<struct S>>::value);
+  EXPECT_TRUE((dsml::IsState<dsml::State<struct S>>::value));
 }
 
 TEST(TypeTraits, IsEvent)
 {
-  EXPECT_FALSE(dsml::is_event_v<int>);
-  EXPECT_TRUE(dsml::is_event_v<dsml::Event<int>>);
-  EXPECT_TRUE(dsml::is_event_v<dsml::Event<struct S>>);
+  EXPECT_FALSE(dsml::IsEvent<int>::value);
+  EXPECT_TRUE(dsml::IsEvent<dsml::Event<int>>::value);
+  EXPECT_TRUE(dsml::IsEvent<dsml::Event<struct S>>::value);
+}
+
+TEST(TypeTraits, IsGuard)
+{
+  EXPECT_FALSE(dsml::detail::IsGuard<int>::value);
+  const auto lambda_val = dsml::detail::IsGuard<decltype(true_guard)>::value;
+  EXPECT_TRUE(lambda_val);
+  const auto func_val = dsml::detail::IsGuard<decltype(&true_guard_func)>::value;
+  EXPECT_TRUE(func_val);
+}
+
+TEST(TypeTraits, IsAction)
+{
+  EXPECT_FALSE(dsml::detail::IsAction<int>::value);
+  const auto lambda_val = dsml::detail::IsAction<decltype(no_action)>::value;
+  EXPECT_TRUE(lambda_val);
+  const auto func_val = dsml::detail::IsAction<decltype(&no_action_func)>::value;
+  EXPECT_TRUE(func_val);
 }
 
 //==========================================================================
-
-void callable1() {}
-void callable1noexcept() noexcept {}
-auto callable2(double) { return std::make_tuple(4, 5.9f); }
 
 TEST(Callable, Functions)
 {
@@ -299,7 +327,11 @@ TEST(GetTypeName, ReturnsString)
 {
   EXPECT_STREQ("int", dsml::get_type_name<int>());
   EXPECT_STREQ("float", dsml::get_type_name<float>());
+#ifdef _MSC_VER
+  EXPECT_STREQ("class std::tuple<char>", dsml::get_type_name<std::tuple<char>>());
+#else
   EXPECT_STREQ("std::tuple<char>", dsml::get_type_name<std::tuple<char>>());
+#endif
 }
 
 //==========================================================================
@@ -315,8 +347,10 @@ TEST(HasStaticCStr, Value)
   using namespace dsml::literals;
 
   EXPECT_FALSE(dsml::detail::HasStaticCStr<int>::value);
+#ifndef _MSC_VER
   constexpr auto udl_cstr = dsml::detail::HasStaticCStr<decltype("hello"_s)>::value;
   EXPECT_TRUE(udl_cstr);
+#endif
   constexpr auto s_cstr = dsml::detail::HasStaticCStr<WithCStr>::value;
   EXPECT_TRUE(s_cstr);
 }
@@ -326,7 +360,9 @@ TEST(Stringify, ReturnsString)
   using namespace dsml::literals;
 
   EXPECT_STREQ("int", dsml::detail::c_str<int>());
+#ifndef _MSC_VER
   EXPECT_STREQ("hello", dsml::detail::c_str<decltype("hello"_s)>());
+#endif
   EXPECT_STREQ("foo", dsml::detail::c_str<WithCStr>());
 }
 
@@ -883,7 +919,7 @@ TEST(Sm, TransitionGuardWithNotOperator)
   struct MyMachine { auto operator()() const noexcept {
           auto guard = [](const bool& flag_){ return flag_; };
           return dsml::make_transition_table(
-                          dsml::initial_state + e1 [ not guard ] = A
+                          dsml::initial_state + e1 [ ! guard ] = A
                       );
   } };
 
@@ -912,7 +948,7 @@ TEST(Sm, TransitionGuardWithAndOperator)
           auto guard1 = [](Data& d){ return d.flag1; };
           auto guard2 = [](Data& d){ return d.flag2; };
           return dsml::make_transition_table(
-                      dsml::initial_state + e1 [ guard1 and guard2 ] = A
+                      dsml::initial_state + e1 [ guard1 && guard2 ] = A
                   );
   } };
 
@@ -966,7 +1002,7 @@ TEST(Sm, TransitionGuardWithOrOperator)
           auto guard1 = [](const Data& d){ return d.flag1; };
           auto guard2 = [](const Data& d){ return d.flag2; };
           return dsml::make_transition_table(
-                      dsml::initial_state + e1 [ guard1 or guard2 ] = A
+                      dsml::initial_state + e1 [ guard1 || guard2 ] = A
                   );
   } };
 
@@ -1108,10 +1144,10 @@ TEST(Sm, GuardAndActionAsMethodPointer)
                 / callee(&Logic::action)
                 = B
           , A + e1
-                [ not callee(&Logic::guard) ]
+                [ ! callee(&Logic::guard) ]
                 = A
           , A + e1
-                [ callee(&Logic::guard) and not callee(&Logic::guard) ]
+                [ callee(&Logic::guard) && !callee(&Logic::guard) ]
                 = A
   ); } };
 
@@ -1574,6 +1610,18 @@ TEST(Sm, Observer)
   dsml::Sm<MyMachine, MyObserver> sm{observer};
 
   sm.process_event(e1);
+#ifdef _MSC_VER
+  EXPECT_EQ((std::vector<std::string>{
+            "anonymous",
+            "initial->struct A_",
+            "anonymous",
+            "struct e1_",
+            "guard 1",
+            "action",
+            "struct A_->struct C_",
+            "anonymous"
+          }), observer.log);
+#else
   EXPECT_EQ((std::vector<std::string>{
             "anonymous",
             "initial->A_",
@@ -1584,6 +1632,7 @@ TEST(Sm, Observer)
             "A_->C_",
             "anonymous"
           }), observer.log);
+#endif
 }
 
 //--------------------------------------------------------------------------
@@ -1622,6 +1671,18 @@ TEST(Sm, ObserverAndDependency)
   dsml::Sm<MyMachine, MyObserver, Logic> sm{observer, logic};
 
   sm.process_event(e1);
+#ifdef _MSC_VER
+  EXPECT_EQ((std::vector<std::string>{
+            "anonymous",
+            "initial->struct A_",
+            "anonymous",
+            "struct e1_",
+            "guard 1",
+            "action",
+            "struct A_->struct B_",
+            "anonymous"
+          }), observer.log);
+#else
   EXPECT_EQ((std::vector<std::string>{
             "anonymous",
             "initial->A_",
@@ -1632,6 +1693,7 @@ TEST(Sm, ObserverAndDependency)
             "A_->B_",
             "anonymous"
           }), observer.log);
+#endif
   EXPECT_EQ(10, logic.x);
 }
 

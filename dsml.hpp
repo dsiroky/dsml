@@ -14,9 +14,13 @@
 #include <type_traits>
 #include <utility>
 
-#pragma GCC diagnostic push
-#if defined(__clang__)
-  #pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template"
+#ifdef _MSC_VER
+  #pragma warning(push)
+#else
+  #pragma GCC diagnostic push
+  #if defined(__clang__)
+    #pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template"
+  #endif
 #endif
 
 //==========================================================================
@@ -25,7 +29,7 @@ namespace dsml {
 
 template<typename>
 struct TransitionTable;
-template<typename, typename, typename>
+template<typename, typename, typename, typename, typename>
 struct TableRow;
 template<typename>
 struct State;
@@ -46,22 +50,18 @@ template<typename _T>
 struct IsState : std::false_type {};
 template<typename _T>
 struct IsState<State<_T>> : std::true_type {};
-template<typename _T>
-static constexpr auto is_state_v = IsState<_T>::value;
 
 template<typename _T>
 struct IsEvent : std::false_type {};
 template<typename _T>
 struct IsEvent<Event<_T>> : std::true_type {};
-template<typename _T>
-static constexpr auto is_event_v = IsEvent<_T>::value;
 
 //==========================================================================
 namespace detail {
 //==========================================================================
 
-static const auto always_true_guard = [](){ return true; };
-static const auto no_action = [](){};
+inline bool always_true_guard() { return true; }
+inline void no_action() {}
 
 //==========================================================================
 
@@ -92,11 +92,11 @@ struct HasStaticCStr
   using yes = char[1];
   using no = char[2];
 
-  template <class U, decltype(U::c_str())(*)() = &U::c_str>
+  template <class U>
   struct MethodTrait;
 
   template <typename U>
-  static yes& _has(MethodTrait<U>*);
+  static yes& _has(MethodTrait<decltype(&U::c_str)>*);
 
   template <typename>
   static no& _has(...);
@@ -214,8 +214,27 @@ struct PrependType<_T0, std::tuple<_T...>>
 template<typename... _T>
 using PrependType_t = typename PrependType<_T...>::type;
 
+template<typename...>
+struct ConcatTuplesImpl;
+template<>
+struct ConcatTuplesImpl<std::tuple<>>
+{
+  using type = std::tuple<>;
+};
+template<typename... _Ts>
+struct ConcatTuplesImpl<std::tuple<_Ts...>>
+{
+  using type = std::tuple<_Ts...>;
+};
+template<typename... _T0s, typename... _Ts, typename... _Rest>
+struct ConcatTuplesImpl<std::tuple<_T0s...>, std::tuple<_Ts...>, _Rest...>
+{
+  using type = typename ConcatTuplesImpl<std::tuple<_T0s..., _Ts...>, _Rest...>::type;
+};
+
 template<typename... _Tuples>
-using ConcatTuples_t = decltype(std::tuple_cat(std::declval<_Tuples>()...));
+using ConcatTuples_t = typename ConcatTuplesImpl<_Tuples...>::type;
+
 /// concatenate subtuples
 template<typename>
 struct FlattenTuple;
@@ -404,7 +423,7 @@ struct NotifyObserverImpl<false>
   static void guard(_Deps& deps, const _Guard& grd, const bool result)
   {
     if (!std::is_same<std::decay_t<_Guard>,
-                      std::decay_t<decltype(always_true_guard)>>::value)
+                      std::decay_t<decltype(&always_true_guard)>>::value)
     {
       get_observer(deps).template guard<std::decay_t<_Guard>>(grd, result);
     }
@@ -414,7 +433,7 @@ struct NotifyObserverImpl<false>
   static void action(_Deps& deps, const _Action& actn)
   {
     if (!std::is_same<std::decay_t<_Action>,
-                      std::decay_t<decltype(no_action)>>::value)
+                      std::decay_t<decltype(&no_action)>>::value)
     {
       get_observer(deps).template action<std::decay_t<_Action>>(actn);
     }
@@ -456,13 +475,33 @@ struct CallableImpl<_Ret(_Args...)>
 template<typename _Ret, typename... _Args>
 struct CallableImpl<_Ret(*)(_Args...)> : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...)> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...)>
+  : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...) const> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...) const>
+  : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...) volatile> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...) volatile>
+  : CallableImpl<_Ret(_Args...)> {};
 template<typename _Ret, typename _T, typename... _Args>
-struct CallableImpl<_Ret(_T::*)(_Args...) const volatile> : CallableImpl<_Ret(_Args...)> {};
+struct CallableImpl<_Ret(_T::*)(_Args...) const volatile>
+  : CallableImpl<_Ret(_Args...)> {};
+#if (__cplusplus > 201402L && __cpp_noexcept_function_type >= 201510) && !defined(_MSC_VER)
+template<typename _Ret, typename... _Args>
+struct CallableImpl<_Ret(*)(_Args...) noexcept> : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) noexcept>
+  : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) const noexcept>
+  : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) volatile noexcept>
+  : CallableImpl<_Ret(_Args...)> {};
+template<typename _Ret, typename _T, typename... _Args>
+struct CallableImpl<_Ret(_T::*)(_Args...) const volatile noexcept>
+  : CallableImpl<_Ret(_Args...)> {};
+#endif
 template<typename _T>
 struct CallableImpl : CallableImpl<decltype(&_T::operator())> {};
 
@@ -474,8 +513,12 @@ struct Callable : CallableImpl<_F> {};
 template<typename _T, typename = void>
 struct IsCallable
 {
-  static constexpr bool value{std::is_function<_T>::value ||
-                              std::is_member_function_pointer<_T>::value};
+  static constexpr bool value{
+      (std::is_pointer<_T>::value &&
+          std::is_function<std::remove_pointer_t<_T>>::value)
+      ||
+      std::is_member_function_pointer<_T>::value
+    };
 };
 
 template<typename _T>
@@ -608,7 +651,7 @@ struct OpNotImpl<_F, std::tuple<Args...>>
 
   bool operator()(Args&&... args) const
   {
-    return not m_f(std::forward<Args>(args)...);
+    return ! m_f(std::forward<Args>(args)...);
   }
 
 private:
@@ -630,7 +673,7 @@ struct ExprAnd
 {
   static constexpr bool eval(const bool v1, const bool v2) noexcept
   {
-    return v1 and v2;
+    return v1 && v2;
   }
 };
 
@@ -638,7 +681,7 @@ struct ExprOr
 {
   static constexpr bool eval(const bool v1, const bool v2) noexcept
   {
-    return v1 or v2;
+    return v1 || v2;
   }
 };
 
@@ -708,7 +751,7 @@ struct final_t { static auto c_str() noexcept { return "final"; } };
 template<typename _T>
 struct IsStateActionEvent
 {
-  static constexpr auto value = std::is_same<_T, Event<on_entry_t>>::value or
+  static constexpr auto value = std::is_same<_T, Event<on_entry_t>>::value ||
                                 std::is_same<_T, Event<on_exit_t>>::value;
 };
 
@@ -732,27 +775,11 @@ using CollectStates_t = UniqueTypesTuple_t<ConcatTuples_t<
 
 //--------------------------------------------------------------------------
 
-template<typename _Row>
-using GuardArgumentList_t =
-            typename Callable<typename _Row::event_bundle_t::guard_t>::args_t;
-template<typename _Row>
-using ActionArgumentList_t =
-            typename Callable<typename _Row::event_bundle_t::action_t>::args_t;
-/// Collect required parameter types (dependencies) from actions and guards
-/// signatures.
-template<typename _Rows>
-using CollectRequiredDepTypes_t = UniqueTypesTuple_t<ConcatTuples_t<
-      Apply_t<GuardArgumentList_t, _Rows>,
-      Apply_t<ActionArgumentList_t, _Rows>
-    >>;
-
-//--------------------------------------------------------------------------
-
 template<typename _Rows, typename _Event>
 struct RowsWithEventIndices
 {
   template<typename _Row>
-  struct filter_t : std::is_same<typename std::decay_t<_Row>::event_bundle_t::event_t, _Event> {};
+  struct filter_t : std::is_same<typename std::decay_t<_Row>::event_t, _Event> {};
   using indices_t = TupleIndexFilter_t<filter_t, _Rows>;
 };
 
@@ -826,7 +853,7 @@ template<typename _Event, typename _GuardF, typename _ActionF>
 struct EventBundle
 {
   using event_t = std::remove_cv_t<_Event>;
-  static_assert(is_event_v<event_t>, "must be event type");
+  static_assert(IsEvent<event_t>::value, "must be event type");
   using guard_t = _GuardF;
   using action_t = _ActionF;
 
@@ -852,8 +879,8 @@ struct Event
   auto operator/(_ActionF action) const noexcept
   {
     detail::check_is_action<_ActionF>();
-    return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
-                                detail::always_true_guard, std::move(action)
+    return EventBundle<Event<_T>, decltype(&detail::always_true_guard), _ActionF>{
+                                &detail::always_true_guard, std::move(action)
                               };
   }
 
@@ -861,8 +888,8 @@ struct Event
   auto operator[](_GuardF guard) const noexcept
   {
     detail::check_is_guard<_GuardF>();
-    return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
-                std::move(guard), detail::no_action
+    return EventBundle<Event<_T>, _GuardF, decltype(&detail::no_action)>{
+                std::move(guard), &detail::no_action
               };
   }
 
@@ -879,7 +906,7 @@ namespace detail {
 template<typename _Rows, typename _Deps>
 static void call_row_action(const _Rows& rows, _Deps& deps, std::true_type)
 {
-  call(std::get<0>(rows).m_event_bundle.m_action, deps);
+  call(std::get<0>(rows).m_action, deps);
 }
 
 template<typename _Rows, typename _Deps>
@@ -910,11 +937,11 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
   {
     using row_t = std::remove_const_t<std::remove_reference_t<_Row>>;
     const auto& row = std::get<_Row>(rows);
-    const auto& guard = row.m_event_bundle.m_guard;
+    const auto& guard = row.m_guard;
     bool processed{false};
     constexpr auto source_state =
                         state_number_v<typename row_t::src_state_t, _AllStates>;
-    if ((source_state == state) and call(guard, deps))
+    if ((source_state == state) && call(guard, deps))
     {
       const auto allowed = call(guard, deps);
       detail::NotifyObserver<_Deps>::template guard<_Deps, decltype(guard)>
@@ -933,9 +960,9 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                             std::false_type, std::true_type>{});
         }
         detail::NotifyObserver<_Deps>
-                  ::template action<_Deps, decltype(row.m_event_bundle.m_action)>
-                                              (deps, row.m_event_bundle.m_action);
-        call(row.m_event_bundle.m_action, deps);
+                  ::template action<_Deps, decltype(row.m_action)>
+                                              (deps, row.m_action);
+        call(row.m_action, deps);
         if (source_state != destination_state)
         {
           state = destination_state;
@@ -954,7 +981,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
       }
     }
 
-    return processed or
+    return processed ||
           ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                                 std::tuple<_Rows...>>{}(
                         all_rows, std::tuple<_Rows...>{std::get<_Rows>(rows)...},
@@ -968,6 +995,7 @@ template<typename...>
 struct HasTableOperatorHelper;
 template<typename _T>
 struct HasTableOperatorHelper<TransitionTable<_T>> {};
+
 /// type trait to detect a SM declaration
 /// (a struct with operator() returning a table)
 template <typename T, typename = int>
@@ -1001,7 +1029,7 @@ struct StateWrap
 template<typename _State, typename _Wrap>
 struct WrapState
 {
-  static_assert(is_state_v<_State>, "");
+  static_assert(IsState<_State>::value, "");
   using type = State<StateWrap<_Wrap, typename _State::base_t>>;
 };
 
@@ -1026,9 +1054,11 @@ auto wrap_row(const _Row& row)
 {
   return TableRow<
               typename WrapState<typename _Row::src_state_t, _Tag>::type,
-              typename _Row::event_bundle_t,
+              typename _Row::event_t,
+              typename _Row::guard_t,
+              typename _Row::action_t,
               typename WrapState<typename _Row::dst_state_t, _Tag>::type
-            >(row.m_event_bundle);
+            >(row.m_guard, row.m_action);
 }
 
 template<typename _Tag, typename _Rows, size_t... _Is>
@@ -1063,10 +1093,12 @@ auto wrap_entry_exit_row(const _Row& row)
   return TableRow<
               // map substate as a source state to its final state
               typename WrapSubPoint<typename _Row::src_state_t, detail::final_t>::type,
-              typename _Row::event_bundle_t,
+              typename _Row::event_t,
+              typename _Row::guard_t,
+              typename _Row::action_t,
               // map substate as a destination state to its initial state
               typename WrapSubPoint<typename _Row::dst_state_t, detail::initial_t>::type
-            >(row.m_event_bundle);
+            >(row.m_guard, row.m_action);
 }
 
 template<typename _Rows, size_t... _Is>
@@ -1146,10 +1178,10 @@ struct State
   auto operator+(const Event<_E>&) const noexcept
   {
     using eb_t = EventBundle<Event<_E>,
-                                decltype(detail::always_true_guard),
-                                decltype(detail::no_action)>;
+                                decltype(&detail::always_true_guard),
+                                decltype(&detail::no_action)>;
     return StateTransition<State<base_t>, eb_t>{
-                  eb_t{detail::always_true_guard, detail::no_action}
+                  eb_t{&detail::always_true_guard, &detail::no_action}
                 };
   }
 
@@ -1212,32 +1244,46 @@ private:
 
 //==========================================================================
 
-template<typename _SrcS, typename _EventBundle, typename _DstS>
+template<typename _SrcS, typename _Event, typename _Guard, typename _Action,
+          typename _DstS>
 struct TableRow
 {
-  static_assert(is_state_v<_SrcS>, "");
-  static_assert(is_state_v<_DstS>, "");
+  static_assert(IsState<_SrcS>::value, "");
+  static_assert(IsEvent<_Event>::value, "");
+  static_assert(detail::IsAction<_Action>::value, "");
+  static_assert(detail::IsGuard<_Guard>::value, "");
+  static_assert(IsState<_DstS>::value, "");
 
   using src_state_t = _SrcS;
+  using event_t = _Event;
+  using guard_t = _Guard;
+  using action_t = _Action;
   using dst_state_t = _DstS;
-  using event_bundle_t = _EventBundle;
 
-  TableRow(_EventBundle event_bundle) : m_event_bundle{event_bundle} {}
+  TableRow(_Guard guard, _Action action)
+    : m_guard{std::move(guard)}, m_action{std::move(action)}
+  {}
 
-  const _EventBundle m_event_bundle{};
+  const _Guard m_guard;
+  const _Action m_action;
 };
 
 template<typename _SrcS, typename _EventBundle>
 struct StateTransition
 {
-  static_assert(is_state_v<_SrcS>, "");
+  static_assert(IsState<_SrcS>::value, "");
 
   StateTransition(_EventBundle event_bundle) : m_event_bundle{event_bundle} {}
 
   template<typename _DstS>
   auto operator=(const State<_DstS>&) const noexcept
   {
-    return TableRow<_SrcS, _EventBundle, State<_DstS>>{m_event_bundle};
+    return TableRow<_SrcS,
+                    typename _EventBundle::event_t,
+                    typename _EventBundle::guard_t,
+                    typename _EventBundle::action_t,
+                    State<_DstS>>
+                {m_event_bundle.m_guard, m_event_bundle.m_action};
   }
 
   template<typename _F>
@@ -1259,8 +1305,6 @@ struct TransitionTable
 {
   using states_t = detail::CollectStates_t<_Rows>;
   using rows_t = _Rows;
-  /// just plain types, no references
-  using deps_t = detail::CollectRequiredDepTypes_t<rows_t>;
   using submachine_types_t = detail::CollectSubmachineTypes_t<states_t>;
 
   static_assert(std::tuple_size<states_t>::value > 0,
@@ -1335,8 +1379,6 @@ public:
 private:
   using deps_t = std::tuple<_Deps&...>;
   using transition_table_t = decltype(detail::expand_table<_MachineDecl>());
-  using required_types_t = detail::CollectRequiredDepTypes_t<
-                                          typename transition_table_t::rows_t>;
 
   static constexpr auto states_count =
                   std::tuple_size<typename transition_table_t::states_t>::value;
@@ -1392,7 +1434,10 @@ auto callee(_F f)
 /// Simple type introspection without RTTI.
 template <typename T>
 auto get_type_name() {
-#if defined(__clang__)
+#if defined(_MSC_VER)
+  using seq_t = std::make_index_sequence<sizeof(__FUNCSIG__) - 33 - 8>;
+  return detail::get_type_name_impl<T, 33>(__FUNCSIG__, seq_t{});
+#elif defined(__clang__)
   using seq_t = std::make_index_sequence<sizeof(__PRETTY_FUNCTION__) - 32 - 2>;
   return detail::get_type_name_impl<T, 32>(__PRETTY_FUNCTION__, seq_t{});
 #elif defined(__GNUC__)
@@ -1413,15 +1458,19 @@ static constexpr auto on_exit = Event<detail::on_exit_t>{};
 
 namespace literals {
 
-template<typename T, T... Chrs>
+#ifndef _MSC_VER
+
+template<typename _T, _T... Chrs>
 auto operator""_s() {
-  return State<detail::CString<T, Chrs...>>{};
+  return State<detail::CString<char, Chrs...>>{};
 }
 
-template<typename T, T... Chrs>
+template<typename _T, _T... Chrs>
 auto operator""_e() {
-  return Event<detail::CString<T, Chrs...>>{};
+  return Event<detail::CString<char, Chrs...>>{};
 }
+
+#endif
 
 }
 
@@ -1453,6 +1502,10 @@ auto operator||(_F1 func1, _F2 func2)
 } // namespace
 //==========================================================================
 
-#pragma GCC diagnostic pop
+#ifdef _MSC_VER
+  #pragma warning(pop)
+#else
+  #pragma GCC diagnostic pop
+#endif
 
 #endif /* include guard */

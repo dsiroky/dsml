@@ -1,0 +1,11 @@
+image: Visual Studio 2017
+build: off
+environment:
+  SCONSFLAGS: "--no-cache -j2"
+install:
+  - pip install -U setuptools wheel
+  - pip install pywin32 scons
+  - git submodule update --init
+test_script:
+  - scons
+  - build\test.exe

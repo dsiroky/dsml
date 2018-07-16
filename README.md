@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/dsiroky/dsml.svg?branch=master)](https://travis-ci.org/dsiroky/dsml)
+[![Build status](https://ci.appveyor.com/api/projects/status/w465pl9kpxut6dvv/branch/master?svg=true)](https://ci.appveyor.com/project/dsiroky/dsml/branch/master)
 
 # dsml - C++ state machine library
 
