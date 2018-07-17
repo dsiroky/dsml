@@ -260,7 +260,7 @@ public:
 
 /// @return tuple of references to a subset of the original tuple.
 template<typename _Tuple, size_t... _Is>
-auto tuple_ref_selection(const _Tuple& tuple, std::index_sequence<_Is...>)
+constexpr auto tuple_ref_selection(const _Tuple& tuple, std::index_sequence<_Is...>)
 {
   return std::make_tuple(std::ref(std::get<_Is>(tuple))...);
 }
@@ -637,7 +637,7 @@ struct OpNotImpl<_F, std::tuple<Args...>>
   }
 
 private:
-  _F m_f;
+  const _F m_f;
 };
 
 template<typename _F>
@@ -681,15 +681,15 @@ struct OpBinaryImpl<_Expr, _F1, std::tuple<Args1...>, _F2, std::tuple<Args2...>>
 
   OpBinaryImpl(_F1 f1, _F2 f2) : m_f1{std::move(f1)}, m_f2{std::move(f2)} {}
 
-  bool operator()(Args1&&... args) const
+  constexpr bool operator()(Args1&&... args) const
   {
     auto tup = std::forward_as_tuple(args...);
     return _Expr::eval(call(m_f1, tup), call(m_f2, tup));
   }
 
 private:
-  _F1 m_f1;
-  _F2 m_f2;
+  const _F1 m_f1;
+  const _F2 m_f2;
 };
 
 //--------------------------------------------------------------------------
@@ -767,7 +767,7 @@ struct RowsWithEventIndices
 
 /// @return tuple of references to rows where the event is present
 template<typename _Rows, typename _Event>
-auto rows_with_event(const _Rows& rows, const _Event&)
+constexpr auto rows_with_event(const _Rows& rows, const _Event&)
 {
   using indices_t = typename RowsWithEventIndices<std::decay_t<_Rows>, _Event>::indices_t;
   return tuple_ref_selection(rows, indices_t{});
@@ -785,7 +785,7 @@ struct RowsWithDstStateIndices
 
 /// @return tuple of references to rows where the event is present
 template<typename _Rows, typename _State>
-auto rows_with_dst_state(const _Rows& rows, const _State&)
+constexpr auto rows_with_dst_state(const _Rows& rows, const _State&)
 {
   using indices_t = typename RowsWithDstStateIndices<std::decay_t<_Rows>, _State>::indices_t;
   return tuple_ref_selection(rows, indices_t{});
@@ -798,7 +798,7 @@ struct GetCurrentStateNameImpl;
 template<typename _AllStates>
 struct GetCurrentStateNameImpl<_AllStates, std::tuple<>>
 {
-  auto operator()(size_t)
+  auto operator()(size_t) const noexcept
   {
     return "N/A";
   }
@@ -806,7 +806,7 @@ struct GetCurrentStateNameImpl<_AllStates, std::tuple<>>
 template<typename _AllStates, typename _S0, typename... _Ss>
 struct GetCurrentStateNameImpl<_AllStates, std::tuple<_S0, _Ss...>>
 {
-  auto operator()(size_t n)
+  auto operator()(size_t n) const noexcept
   {
     if (n == TypeIndex<_S0, _AllStates>::value)
     {
@@ -820,7 +820,7 @@ struct GetCurrentStateNameImpl<_AllStates, std::tuple<_S0, _Ss...>>
 template<typename _AllStates>
 struct GetCurrentStateName
 {
-  auto operator()(size_t n)
+  auto operator()(size_t n) const noexcept
   {
     return GetCurrentStateNameImpl<_AllStates, _AllStates>{}(n);
   }
@@ -835,14 +835,15 @@ template<typename _Event, typename _GuardF, typename _ActionF>
 struct EventBundle
 {
   using event_t = std::remove_cv_t<_Event>;
-  static_assert(IsEvent<event_t>::value, "must be event type");
   using guard_t = _GuardF;
   using action_t = _ActionF;
 
-  EventBundle(_GuardF gf, _ActionF af) noexcept : m_guard{gf}, m_action{af} {}
+  constexpr EventBundle(_GuardF gf, _ActionF af) noexcept
+    : m_guard{std::move(gf)}, m_action{std::move(af)}
+  {}
 
   template<typename _F>
-  auto operator/(_F action) const noexcept
+  constexpr auto operator/(_F action) const noexcept
   {
     detail::check_is_action<_F>();
     return EventBundle<_Event, _GuardF, _F>{m_guard, std::move(action)};
@@ -858,7 +859,7 @@ struct Event
   using base_t = _T;
 
   template<typename _ActionF>
-  auto operator/(_ActionF action) const noexcept
+  constexpr auto operator/(_ActionF action) const noexcept
   {
     detail::check_is_action<_ActionF>();
     return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
@@ -867,7 +868,7 @@ struct Event
   }
 
   template<typename _GuardF>
-  auto operator[](_GuardF guard) const noexcept
+  constexpr auto operator[](_GuardF guard) const noexcept
   {
     detail::check_is_guard<_GuardF>();
     return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
@@ -904,7 +905,8 @@ struct ProcessSingleEventImpl;
 template<typename _AllStates, typename _AllRows, typename _Deps, typename _StateNum>
 struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum, std::tuple<>>
 {
-  bool operator()(const _AllRows&, const std::tuple<>&, _StateNum&, _Deps&) const noexcept
+  constexpr bool operator()(const _AllRows&, const std::tuple<>&, _StateNum&, _Deps&)
+      const noexcept
   {
     return false;
   }
@@ -914,8 +916,9 @@ template<typename _AllStates, typename _AllRows, typename _Deps, typename _State
 struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                               std::tuple<_Row, _Rows...>>
 {
-  bool operator()(const _AllRows& all_rows, const std::tuple<_Row, _Rows...>& rows,
-                  _StateNum& state, _Deps& deps) const
+  constexpr bool operator()(const _AllRows& all_rows,
+                            const std::tuple<_Row, _Rows...>& rows,
+                            _StateNum& state, _Deps& deps) const
   {
     using row_t = std::remove_const_t<std::remove_reference_t<_Row>>;
     const auto& row = std::get<_Row>(rows);
@@ -991,7 +994,7 @@ struct HasTableOperator<T, decltype(
 //--------------------------------------------------------------------------
 
 template<typename _MachineDecl>
-auto transition_table_from_machine_declaration()
+constexpr auto transition_table_from_machine_declaration()
 {
   static_assert(HasTableOperator<_MachineDecl>::value, "must be a SM declaration");
   return _MachineDecl{}();
@@ -1032,7 +1035,7 @@ struct WrapStateInLayers<_State, _W0, _Ws...>
 //--------------------------------------------------------------------------
 
 template<typename _Tag, typename _Row>
-auto wrap_row(const _Row& row)
+constexpr auto wrap_row(const _Row& row)
 {
   return TableRow<
               typename WrapState<typename _Row::src_state_t, _Tag>::type,
@@ -1044,14 +1047,15 @@ auto wrap_row(const _Row& row)
 }
 
 template<typename _Tag, typename _Rows, size_t... _Is>
-auto wrap_states_impl(const _Rows& rows, TypeHolder<_Tag>, std::index_sequence<_Is...>)
+constexpr auto wrap_states_impl(const _Rows& rows, TypeHolder<_Tag>,
+                                std::index_sequence<_Is...>)
 {
   return std::make_tuple(wrap_row<_Tag>(std::get<_Is>(rows))...);
 }
 
 /// @return tuple of copied rows that contain wrapped states
 template<typename _Tag, typename _Rows>
-auto wrap_states(const _Rows& rows)
+constexpr auto wrap_states(const _Rows& rows)
 {
   using indices_t = std::make_index_sequence<std::tuple_size<_Rows>::value>;
   return wrap_states_impl(rows, TypeHolder<_Tag>{}, indices_t{});
@@ -1070,7 +1074,7 @@ struct WrapSubPoint
 };
 
 template<typename _Row>
-auto wrap_entry_exit_row(const _Row& row)
+constexpr auto wrap_entry_exit_row(const _Row& row)
 {
   return TableRow<
               // map substate as a source state to its final state
@@ -1084,7 +1088,7 @@ auto wrap_entry_exit_row(const _Row& row)
 }
 
 template<typename _Rows, size_t... _Is>
-auto wrap_entry_exit_states_impl(const _Rows& rows, std::index_sequence<_Is...>)
+constexpr auto wrap_entry_exit_states_impl(const _Rows& rows, std::index_sequence<_Is...>)
 {
   return std::make_tuple(wrap_entry_exit_row(std::get<_Is>(rows))...);
 }
@@ -1093,7 +1097,7 @@ auto wrap_entry_exit_states_impl(const _Rows& rows, std::index_sequence<_Is...>)
 /// will be converted to final states of that submachine. Destination states
 /// will become initial states of that submachine.
 template<typename _Rows>
-auto wrap_entry_exit_states(const _Rows& rows)
+constexpr auto wrap_entry_exit_states(const _Rows& rows)
 {
   using indices_t = std::make_index_sequence<std::tuple_size<_Rows>::value>;
   return wrap_entry_exit_states_impl(rows, indices_t{});
@@ -1112,13 +1116,13 @@ using CollectSubmachineTypes_t = UniqueTypesTuple_t<Filter_t<HasTableOperator,
 //--------------------------------------------------------------------------
 
 template<typename _Rows>
-auto make_transition_table_from_tuple(_Rows rows)
+constexpr auto make_transition_table_from_tuple(_Rows rows)
 {
   return TransitionTable<_Rows>{std::move(rows)};
 }
 
 template<typename _MachineDecl>
-auto expand_table();
+constexpr auto expand_table();
 
 /// Expand and concatenate sub-machines.
 template<typename...>
@@ -1126,7 +1130,7 @@ struct AddSubmachines;
 template<typename... _STs>
 struct AddSubmachines<std::tuple<_STs...>>
 {
-  auto operator()()
+  constexpr auto operator()() const
   {
       return std::tuple_cat(wrap_states<_STs>(expand_table<_STs>().m_rows)...);
   }
@@ -1135,7 +1139,7 @@ struct AddSubmachines<std::tuple<_STs...>>
 /// Generate recursively a big table for a composite machine with expanded
 /// sub-machines and well connected entry and exit points.
 template<typename _MachineDecl>
-auto expand_table()
+constexpr auto expand_table()
 {
   const auto table_base = transition_table_from_machine_declaration<_MachineDecl>();
   return make_transition_table_from_tuple(std::tuple_cat(
@@ -1157,7 +1161,7 @@ struct State
   using base_t = _Base;
 
   template<typename _E>
-  auto operator+(const Event<_E>&) const noexcept
+  constexpr auto operator+(const Event<_E>&) const noexcept
   {
     using eb_t = EventBundle<Event<_E>,
                                 decltype(detail::always_true_guard),
@@ -1168,7 +1172,7 @@ struct State
   }
 
   template<typename _E, typename _GuardF, typename _ActionF>
-  auto operator+(const EventBundle<_E, _GuardF, _ActionF>& eb) const noexcept
+  constexpr auto operator+(const EventBundle<_E, _GuardF, _ActionF>& eb) const noexcept
   {
     using tag_t = std::conditional_t<
                 detail::IsStateActionEvent<
@@ -1180,21 +1184,21 @@ struct State
   }
 
   template<typename _F>
-  auto operator[](_F guard) const noexcept
+  constexpr auto operator[](_F guard) const noexcept
   {
     detail::check_is_guard<_F>();
     return *this + Event<detail::anonymous_t>{} [ guard ];
   }
 
   template<typename _F>
-  auto operator/(_F action) const noexcept
+  constexpr auto operator/(_F action) const noexcept
   {
     detail::check_is_action<_F>();
     return *this + Event<detail::anonymous_t>{} / action;
   }
 
   template<typename _DstS>
-  auto operator=(const State<_DstS>& dst) const noexcept
+  constexpr auto operator=(const State<_DstS>& dst) const noexcept
   {
     return *this + Event<detail::anonymous_t>{} = dst;
   }
@@ -1209,14 +1213,14 @@ private:
   struct state_action_t {};
 
   template<typename _E, typename _GuardF, typename _ActionF>
-  auto combine_event_bundle(const EventBundle<_E, _GuardF, _ActionF>& eb,
+  constexpr auto combine_event_bundle(const EventBundle<_E, _GuardF, _ActionF>& eb,
                             detail::TypeHolder<transition_action_t>) const noexcept
   {
     return StateTransition<State<base_t>, EventBundle<_E, _GuardF, _ActionF>>{eb};
   }
 
   template<typename _E, typename _GuardF, typename _ActionF>
-  auto combine_event_bundle(const EventBundle<_E, _GuardF, _ActionF>& eb,
+  constexpr auto combine_event_bundle(const EventBundle<_E, _GuardF, _ActionF>& eb,
                             detail::TypeHolder<state_action_t>) const noexcept
   {
     // make a loop to itself to have unified table rows
@@ -1242,7 +1246,7 @@ struct TableRow
   using action_t = _Action;
   using dst_state_t = _DstS;
 
-  TableRow(_Guard guard, _Action action)
+  constexpr TableRow(_Guard guard, _Action action)
     : m_guard{std::move(guard)}, m_action{std::move(action)}
   {}
 
@@ -1255,10 +1259,12 @@ struct StateTransition
 {
   static_assert(IsState<_SrcS>::value, "");
 
-  StateTransition(_EventBundle event_bundle) : m_event_bundle{event_bundle} {}
+  constexpr StateTransition(_EventBundle event_bundle)
+    : m_event_bundle{event_bundle}
+  {}
 
   template<typename _DstS>
-  auto operator=(const State<_DstS>&) const noexcept
+  constexpr auto operator=(const State<_DstS>&) const noexcept
   {
     return TableRow<_SrcS,
                     typename _EventBundle::event_t,
@@ -1269,7 +1275,7 @@ struct StateTransition
   }
 
   template<typename _F>
-  auto operator/(_F action) const noexcept
+  constexpr auto operator/(_F action) const noexcept
   {
     detail::check_is_action<_F>();
     auto new_bundle = EventBundle<typename _EventBundle::event_t,
@@ -1294,13 +1300,13 @@ struct TransitionTable
   static_assert(detail::HasType<State<detail::initial_t>, states_t>::value,
                 "table must have initial state");
 
-  TransitionTable(const _Rows& rows) noexcept : m_rows{rows} {}
+  constexpr TransitionTable(const _Rows& rows) noexcept : m_rows{rows} {}
 
   const rows_t m_rows;
 };
 
 template<typename... _Ts>
-auto make_transition_table(_Ts... rows)
+constexpr auto make_transition_table(_Ts... rows)
 {
   return TransitionTable<std::tuple<_Ts...>>{std::tuple<_Ts...>{rows...}};
 }
@@ -1320,7 +1326,7 @@ public:
   }
 
   template<typename _State>
-  bool is(const _State&) const noexcept
+  constexpr bool is(const _State&) const noexcept
   {
     constexpr auto number = detail::TypeIndex<
                                       std::remove_cv_t<_State>,
@@ -1331,7 +1337,7 @@ public:
 
   /// XXX this will be removed and somehow unified with is()
   template<typename _State, typename... _Submachines>
-  bool is_sub(const _State&, const _Submachines&...) const noexcept
+  constexpr bool is_sub(const _State&, const _Submachines&...) const noexcept
   {
     constexpr auto number = detail::TypeIndex<
                                       typename detail::WrapStateInLayers<
@@ -1370,7 +1376,7 @@ private:
 
   /// @return true if transition was executed
   template<typename _ET>
-  bool process_single_event(const Event<_ET>& evt)
+  constexpr bool process_single_event(const Event<_ET>& evt)
   {
     const auto table = detail::expand_table<_MachineDecl>();
     auto filtered_rows = detail::rows_with_event(table.m_rows, evt);
