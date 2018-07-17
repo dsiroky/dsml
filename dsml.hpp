@@ -73,7 +73,7 @@ template <char... _Chrs>
 struct CString<char, _Chrs...> {
   using type = CString;
   static auto c_str() noexcept {
-    static char str[] = {_Chrs..., 0};
+    static const char str[] = {_Chrs..., 0};
     return str;
   }
 };
