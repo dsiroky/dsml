@@ -24,6 +24,10 @@
 #endif
 
 //==========================================================================
+
+#define _DSML_REQUIRES(...) typename std::enable_if<__VA_ARGS__, int>::type = 0
+
+//==========================================================================
 namespace dsml {
 //==========================================================================
 
@@ -525,13 +529,6 @@ struct IsGuardImpl<_F, false>
 template<typename _F>
 struct IsGuard : IsGuardImpl<_F, IsCallable<_F>::value> {};
 
-template<typename _F>
-void check_is_guard()
-{
-  static_assert(detail::IsGuard<_F>::value,
-                "guard must be callable returning bool");
-}
-
 //--------------------------------------------------------------------------
 
 template<typename, bool>
@@ -548,13 +545,6 @@ struct IsActionImpl<_F, false>
 };
 template<typename _F>
 struct IsAction : IsActionImpl<_F, IsCallable<_F>::value> {};
-
-template<typename _F>
-void check_is_action()
-{
-  static_assert(detail::IsAction<_F>::value,
-                "action must be callable with void return type");
-}
 
 //--------------------------------------------------------------------------
 
@@ -643,8 +633,6 @@ private:
 template<typename _F>
 struct OpNot : OpNotImpl<_F, typename Callable<_F>::args_t>
 {
-  static_assert(std::is_same<typename detail::Callable<_F>::ret_t, bool>::value,
-                "operand must return bool");
   using super = OpNotImpl<_F, typename Callable<_F>::args_t>;
   using super::super;
 };
@@ -674,11 +662,6 @@ struct OpBinaryImpl;
 template<typename _Expr, typename _F1, typename _F2, typename... Args1, typename... Args2>
 struct OpBinaryImpl<_Expr, _F1, std::tuple<Args1...>, _F2, std::tuple<Args2...>>
 {
-  static_assert(std::is_same<typename detail::Callable<_F1>::ret_t, bool>::value,
-                "operand must return bool");
-  static_assert(std::is_same<typename detail::Callable<_F2>::ret_t, bool>::value,
-                "operand must return bool");
-
   OpBinaryImpl(_F1 f1, _F2 f2) : m_f1{std::move(f1)}, m_f2{std::move(f2)} {}
 
   constexpr bool operator()(Args1&&... args) const
@@ -842,10 +825,10 @@ struct EventBundle
     : m_guard{std::move(gf)}, m_action{std::move(af)}
   {}
 
-  template<typename _F>
+  template<typename _F,
+          _DSML_REQUIRES(detail::IsAction<_F>::value)>
   constexpr auto operator/(_F action) const noexcept
   {
-    detail::check_is_action<_F>();
     return EventBundle<_Event, _GuardF, _F>{m_guard, std::move(action)};
   }
 
@@ -858,19 +841,19 @@ struct Event
 {
   using base_t = _T;
 
-  template<typename _ActionF>
+  template<typename _ActionF,
+          _DSML_REQUIRES(detail::IsAction<_ActionF>::value)>
   constexpr auto operator/(_ActionF action) const noexcept
   {
-    detail::check_is_action<_ActionF>();
     return EventBundle<Event<_T>, decltype(detail::always_true_guard), _ActionF>{
                                 detail::always_true_guard, std::move(action)
                               };
   }
 
-  template<typename _GuardF>
+  template<typename _GuardF,
+          _DSML_REQUIRES(detail::IsGuard<_GuardF>::value)>
   constexpr auto operator[](_GuardF guard) const noexcept
   {
-    detail::check_is_guard<_GuardF>();
     return EventBundle<Event<_T>, _GuardF, decltype(detail::no_action)>{
                 std::move(guard), detail::no_action
               };
@@ -1183,17 +1166,17 @@ struct State
     return combine_event_bundle<_E, _GuardF, _ActionF>(eb, tag_t{});
   }
 
-  template<typename _F>
+  template<typename _F,
+          _DSML_REQUIRES(detail::IsGuard<_F>::value)>
   constexpr auto operator[](_F guard) const noexcept
   {
-    detail::check_is_guard<_F>();
     return *this + Event<detail::anonymous_t>{} [ guard ];
   }
 
-  template<typename _F>
+  template<typename _F,
+          _DSML_REQUIRES(detail::IsAction<_F>::value)>
   constexpr auto operator/(_F action) const noexcept
   {
-    detail::check_is_action<_F>();
     return *this + Event<detail::anonymous_t>{} / action;
   }
 
@@ -1274,10 +1257,10 @@ struct StateTransition
                 {m_event_bundle.m_guard, m_event_bundle.m_action};
   }
 
-  template<typename _F>
+  template<typename _F,
+          _DSML_REQUIRES(detail::IsAction<_F>::value)>
   constexpr auto operator/(_F action) const noexcept
   {
-    detail::check_is_action<_F>();
     auto new_bundle = EventBundle<typename _EventBundle::event_t,
                                   typename _EventBundle::guard_t,
                                   _F>
@@ -1466,19 +1449,23 @@ auto operator""_e() {
 
 namespace guard_operators {
 
-template<typename _F>
+template<typename _F, _DSML_REQUIRES(detail::IsGuard<_F>::value)>
 auto operator!(_F func)
 {
   return detail::OpNot<_F>{std::move(func)};
 }
 
-template<typename _F1, typename _F2>
+template<typename _F1, typename _F2,
+        _DSML_REQUIRES(detail::IsGuard<_F1>::value &&
+                        detail::IsGuard<_F2>::value)>
 auto operator&&(_F1 func1, _F2 func2)
 {
   return detail::OpAnd<_F1, _F2>{std::move(func1), std::move(func2)};
 }
 
-template<typename _F1, typename _F2>
+template<typename _F1, typename _F2,
+        _DSML_REQUIRES(detail::IsGuard<_F1>::value &&
+                        detail::IsGuard<_F2>::value)>
 auto operator||(_F1 func1, _F2 func2)
 {
   return detail::OpOr<_F1, _F2>{std::move(func1), std::move(func2)};
