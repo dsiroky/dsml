@@ -35,7 +35,7 @@ template<typename>
 struct TransitionTable;
 template<typename, typename, typename, typename, typename>
 struct TableRow;
-template<typename>
+template<typename, typename>
 struct State;
 template<typename>
 struct Event;
@@ -52,8 +52,8 @@ struct Observer : Policy {};
 
 template<typename _T>
 struct IsState : std::false_type {};
-template<typename _T>
-struct IsState<State<_T>> : std::true_type {};
+template<typename _T, typename _Tag>
+struct IsState<State<_T, _Tag>> : std::true_type {};
 
 template<typename _T>
 struct IsEvent : std::false_type {};
@@ -985,34 +985,20 @@ constexpr auto transition_table_from_machine_declaration()
 
 //--------------------------------------------------------------------------
 
-template<typename _T1, typename _T2>
-struct StateWrap
-{
-  static auto c_str()
-  {
-    return detail::c_str<_T2>();
-  }
-};
-
 template<typename _State, typename _Wrap>
 struct WrapState
 {
   static_assert(IsState<_State>::value, "");
-  using type = State<StateWrap<_Wrap, typename _State::base_t>>;
+  using type = State<typename _State::base_t,
+                      PrependType_t<_Wrap, typename _State::tags_t>>;
 };
 
-/// WrapState<WrapState<WrapState<...>>>
-template<typename...>
-struct WrapStateInLayers;
-template<typename _State, typename _W0>
-struct WrapStateInLayers<_State, _W0>
+template<typename _State, typename... _Ws>
+struct WrapStateInLayers
 {
-  using type = typename WrapState<_State, _W0>::type;
-};
-template<typename _State, typename _W0, typename... _Ws>
-struct WrapStateInLayers<_State, _W0, _Ws...>
-{
-  using type = typename WrapState<typename WrapStateInLayers<_State, _Ws...>::type, _W0>::type;
+  static_assert(IsState<_State>::value, "");
+  using type = State<typename _State::base_t,
+                      ConcatTuples_t<std::tuple<_Ws...>, typename _State::tags_t>>;
 };
 
 //--------------------------------------------------------------------------
@@ -1051,7 +1037,7 @@ struct WrapSubPoint
 {
   using type = std::conditional_t<
                 HasTableOperator<typename _State::base_t>::value,
-                typename WrapState<State<_PointType>, typename _State::base_t>::type,
+                State<_PointType, std::tuple<typename _State::base_t>>,
                 _State
               >;
 };
@@ -1067,7 +1053,7 @@ constexpr auto wrap_entry_exit_row(const _Row& row)
               typename _Row::action_t,
               // map substate as a destination state to its initial state
               typename WrapSubPoint<typename _Row::dst_state_t, detail::initial_t>::type
-            >(row.m_guard, row.m_action);
+            >{row.m_guard, row.m_action};
 }
 
 template<typename _Rows, size_t... _Is>
@@ -1138,10 +1124,11 @@ constexpr auto expand_table()
 template<typename _SrcS, typename _EventBundle>
 struct StateTransition;
 
-template<typename _Base>
+template<typename _Base, typename _Tags=std::tuple<>>
 struct State
 {
   using base_t = _Base;
+  using tags_t = _Tags;
 
   template<typename _E>
   constexpr auto operator+(const Event<_E>&) const noexcept
