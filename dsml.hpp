@@ -221,40 +221,35 @@ template<typename... _T>
 using PrependType_t = typename PrependType<_T...>::type;
 
 template<typename...>
-struct ConcatTuplesImpl;
-template<>
-struct ConcatTuplesImpl<std::tuple<>>
+struct ConcatTypesImpl;
+template<typename _T>
+struct ConcatTypesImpl<_T>
 {
-  using type = std::tuple<>;
+  using type = _T;
 };
-template<typename... _Ts>
-struct ConcatTuplesImpl<std::tuple<_Ts...>>
+template<typename... _T0s, typename... _T1s, typename... _Rest>
+struct ConcatTypesImpl<std::tuple<_T0s...>, std::tuple<_T1s...>, _Rest...>
 {
-  using type = std::tuple<_Ts...>;
-};
-template<typename... _T0s, typename... _Ts, typename... _Rest>
-struct ConcatTuplesImpl<std::tuple<_T0s...>, std::tuple<_Ts...>, _Rest...>
-{
-  using type = typename ConcatTuplesImpl<std::tuple<_T0s..., _Ts...>, _Rest...>::type;
+  using type = typename ConcatTypesImpl<std::tuple<_T0s..., _T1s...>, _Rest...>::type;
 };
 
 template<typename... _Tuples>
-using ConcatTuples_t = typename ConcatTuplesImpl<_Tuples...>::type;
+using ConcatTypes_t = typename ConcatTypesImpl<_Tuples...>::type;
 
 template<typename... _T>
-struct UniqueTypesTuple;
+struct UniqueTypes;
 template<typename... _T>
-using UniqueTypesTuple_t = typename UniqueTypesTuple<_T...>::type;
+using UniqueTypes_t = typename UniqueTypes<_T...>::type;
 template<>
-struct UniqueTypesTuple<std::tuple<>>
+struct UniqueTypes<std::tuple<>>
 {
   using type = std::tuple<>;
 };
 template<typename _T0, typename... _T>
-struct UniqueTypesTuple<std::tuple<_T0, _T...>>
+struct UniqueTypes<std::tuple<_T0, _T...>>
 {
 private:
-  using rest_t = UniqueTypesTuple_t<std::tuple<_T...>>;
+  using rest_t = UniqueTypes_t<std::tuple<_T...>>;
 public:
   using type = typename std::conditional_t<HasType<_T0, std::tuple<_T...>>::value,
                   rest_t,
@@ -733,7 +728,7 @@ using RowSrcState_t = typename _Row::src_state_t;
 template<typename _Row>
 using RowDstState_t = typename _Row::dst_state_t;
 template<typename _Rows>
-using CollectStates_t = UniqueTypesTuple_t<ConcatTuples_t<
+using CollectStates_t = UniqueTypes_t<ConcatTypes_t<
                       Apply_t<RowSrcState_t, _Rows>,
                       Apply_t<RowDstState_t, _Rows>
                     >>;
@@ -998,7 +993,7 @@ struct WrapStateInLayers
 {
   static_assert(IsState<_State>::value, "");
   using type = State<typename _State::base_t,
-                      ConcatTuples_t<std::tuple<_Ws...>, typename _State::tags_t>>;
+                      ConcatTypes_t<std::tuple<_Ws...>, typename _State::tags_t>>;
 };
 
 //--------------------------------------------------------------------------
@@ -1079,7 +1074,7 @@ using SubmachineType_t = typename _State::base_t;
 
 /// Collect machine types from a transition table rows.
 template<typename _States>
-using CollectSubmachineTypes_t = UniqueTypesTuple_t<Filter_t<HasTableOperator,
+using CollectSubmachineTypes_t = UniqueTypes_t<Filter_t<HasTableOperator,
                                           Apply_t<SubmachineType_t, _States>>>;
 
 //--------------------------------------------------------------------------

@@ -80,38 +80,38 @@ TEST(MinimalUnsigned, ProvidesType)
 
 //==========================================================================
 
-TEST(ConcatTuples, Misc)
+TEST(ConcatTypes, Misc)
 {
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<std::tuple<>>,
+        dsml::detail::ConcatTypes_t<std::tuple<>>,
         std::tuple<>
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<std::tuple<int>>,
+        dsml::detail::ConcatTypes_t<std::tuple<int>>,
         std::tuple<int>
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<std::tuple<int, char>>,
+        dsml::detail::ConcatTypes_t<std::tuple<int, char>>,
         std::tuple<int, char>
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<std::tuple<>, std::tuple<int, char>>,
+        dsml::detail::ConcatTypes_t<std::tuple<>, std::tuple<int, char>>,
         std::tuple<int, char>
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<std::tuple<int, char>, std::tuple<>>,
+        dsml::detail::ConcatTypes_t<std::tuple<int, char>, std::tuple<>>,
         std::tuple<int, char>
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<std::tuple<int, char>, std::tuple<bool>>,
+        dsml::detail::ConcatTypes_t<std::tuple<int, char>, std::tuple<bool>>,
         std::tuple<int, char, bool>
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<std::tuple<int, char>, std::tuple<bool, int>>,
+        dsml::detail::ConcatTypes_t<std::tuple<int, char>, std::tuple<bool, int>>,
         std::tuple<int, char, bool, int>
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<
+        dsml::detail::ConcatTypes_t<
                             std::tuple<int, char>,
                             std::tuple<bool, int>,
                             std::tuple<>
@@ -119,7 +119,7 @@ TEST(ConcatTuples, Misc)
         std::tuple<int, char, bool, int>
       >::value));
   EXPECT_TRUE((std::is_same<
-        dsml::detail::ConcatTuples_t<
+        dsml::detail::ConcatTypes_t<
                             std::tuple<int, char>,
                             std::tuple<const bool, int, char[3]>,
                             std::tuple<double*>
@@ -133,47 +133,47 @@ TEST(ConcatTuples, Misc)
 TEST(UniqueTuple, RemovesDuplicitTypes)
 {
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<>>,
+        dsml::detail::UniqueTypes_t<std::tuple<>>,
         std::tuple<>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<int>>,
+        dsml::detail::UniqueTypes_t<std::tuple<int>>,
         std::tuple<int>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<int, bool>>,
+        dsml::detail::UniqueTypes_t<std::tuple<int, bool>>,
         std::tuple<int, bool>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<int, bool, double>>,
+        dsml::detail::UniqueTypes_t<std::tuple<int, bool, double>>,
         std::tuple<int, bool, double>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<int, int>>,
+        dsml::detail::UniqueTypes_t<std::tuple<int, int>>,
         std::tuple<int>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<int, int, bool>>,
+        dsml::detail::UniqueTypes_t<std::tuple<int, int, bool>>,
         std::tuple<int, bool>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<int, bool, int>>,
+        dsml::detail::UniqueTypes_t<std::tuple<int, bool, int>>,
         std::tuple<bool, int>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<bool, int, int>>,
+        dsml::detail::UniqueTypes_t<std::tuple<bool, int, int>>,
         std::tuple<bool, int>
       >::value));
 
   EXPECT_TRUE((std::is_same<
-        dsml::detail::UniqueTypesTuple_t<std::tuple<
+        dsml::detail::UniqueTypes_t<std::tuple<
                       bool, int, int, bool, double, int, bool, double, double
                     >>,
         std::tuple<int, bool, double>
