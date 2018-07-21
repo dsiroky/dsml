@@ -183,22 +183,17 @@ using ConcatIndexSeq_t = typename ConcatIndexSeq<_S1, _S2>::type;
 //--------------------------------------------------------------------------
 
 template<typename _T>
-struct IsTuple : std::false_type {};
-template<typename... _T>
-struct IsTuple<std::tuple<_T...>> : std::true_type {};
-
-template<typename _T>
 struct IsEmptyTuple
 {
   static constexpr auto value = std::tuple_size<_T>::value == 0;
 };
 
+//--------------------------------------------------------------------------
+
 template <typename _T, typename _Tuple>
 struct HasType;
 template <typename _T, typename... _Us>
 struct HasType<_T, std::tuple<_Us...>> : disjunction<std::is_same<_T, _Us>...> {};
-
-//--------------------------------------------------------------------------
 
 template<typename...>
 struct RemoveFirstType;
