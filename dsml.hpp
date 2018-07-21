@@ -1041,45 +1041,20 @@ struct WrapSubPoint
               >;
 };
 
-template<typename _Row>
-constexpr auto wrap_entry_exit_row(const _Row& row)
-{
-  return TableRow<
-              // map substate as a source state to its final state
-              typename WrapSubPoint<typename _Row::src_state_t, detail::final_t>::type,
-              typename _Row::event_t,
-              typename _Row::guard_t,
-              typename _Row::action_t,
-              // map substate as a destination state to its initial state
-              typename WrapSubPoint<typename _Row::dst_state_t, detail::initial_t>::type
-            >{row.m_guard, row.m_action};
-}
-
-template<typename _Rows, size_t... _Is>
-constexpr auto wrap_entry_exit_states_impl(const _Rows& rows, std::index_sequence<_Is...>)
-{
-  return std::make_tuple(wrap_entry_exit_row(std::get<_Is>(rows))...);
-}
-
-/// @return tuple of copied rows where source states representing a substate
-/// will be converted to final states of that submachine. Destination states
-/// will become initial states of that submachine.
-template<typename _Rows>
-constexpr auto wrap_entry_exit_states(const _Rows& rows)
-{
-  using indices_t = std::make_index_sequence<std::tuple_size<_Rows>::value>;
-  return wrap_entry_exit_states_impl(rows, indices_t{});
-}
-
 //==========================================================================
 
-template<typename _State>
-using SubmachineType_t = typename _State::base_t;
-
+template<typename _Row>
+using RowSrcStateRaw_t = typename _Row::src_state_raw_t::base_t;
+template<typename _Row>
+using RowDstStateRaw_t = typename _Row::dst_state_raw_t::base_t;
 /// Collect machine types from a transition table rows.
-template<typename _States>
+template<typename _Rows>
 using CollectSubmachineTypes_t = UniqueTypes_t<Filter_t<HasTableOperator,
-                                          Apply_t<SubmachineType_t, _States>>>;
+                                    ConcatTypes_t<
+                                      Apply_t<RowSrcStateRaw_t, _Rows>,
+                                      Apply_t<RowDstStateRaw_t, _Rows>
+                                    >>
+                                  >;
 
 //--------------------------------------------------------------------------
 
@@ -1111,7 +1086,7 @@ constexpr auto expand_table()
 {
   const auto table_base = transition_table_from_machine_declaration<_MachineDecl>();
   return make_transition_table_from_tuple(std::tuple_cat(
-            wrap_entry_exit_states(std::move(table_base.m_rows)),
+            table_base.m_rows,
             AddSubmachines<typename decltype(table_base)::submachine_types_t>{}()
           ));
 }
@@ -1209,11 +1184,15 @@ struct TableRow
   static_assert(detail::IsGuard<_Guard>::value, "");
   static_assert(IsState<_DstS>::value, "");
 
-  using src_state_t = _SrcS;
+  // map substate as a source state to its final state
+  using src_state_t = typename detail::WrapSubPoint<_SrcS, detail::final_t>::type;
+  using src_state_raw_t = _SrcS;
   using event_t = _Event;
   using guard_t = _Guard;
   using action_t = _Action;
-  using dst_state_t = _DstS;
+  // map substate as a destination state to its initial state
+  using dst_state_t = typename detail::WrapSubPoint<_DstS, detail::initial_t>::type;
+  using dst_state_raw_t = _DstS;
 
   constexpr TableRow(_Guard guard, _Action action)
     : m_guard{std::move(guard)}, m_action{std::move(action)}
@@ -1262,7 +1241,7 @@ struct TransitionTable
 {
   using states_t = detail::CollectStates_t<_Rows>;
   using rows_t = _Rows;
-  using submachine_types_t = detail::CollectSubmachineTypes_t<states_t>;
+  using submachine_types_t = detail::CollectSubmachineTypes_t<_Rows>;
 
   static_assert(std::tuple_size<states_t>::value > 0,
                 "table must have at least 1 state");
