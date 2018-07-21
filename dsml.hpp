@@ -190,7 +190,7 @@ struct IsEmptyTuple
 
 //--------------------------------------------------------------------------
 
-template <typename _T, typename _Tuple>
+template <typename _T, typename...>
 struct HasType;
 template <typename _T, typename... _Us>
 struct HasType<_T, std::tuple<_Us...>> : disjunction<std::is_same<_T, _Us>...> {};
@@ -252,13 +252,6 @@ public:
                 >;
 };
 
-/// @return tuple of references to a subset of the original tuple.
-template<typename _Tuple, size_t... _Is>
-constexpr auto tuple_ref_selection(const _Tuple& tuple, std::index_sequence<_Is...>)
-{
-  return std::make_tuple(std::ref(std::get<_Is>(tuple))...);
-}
-
 template <template <class...> class, class>
 struct Apply;
 template <template <class...> class T, class... Ts>
@@ -288,6 +281,29 @@ public:
 template<template <typename...> class _Filter, typename _Tuple>
 using Filter_t = typename Filter<_Filter, _Tuple>::type;
 
+//--------------------------------------------------------------------------
+
+template<size_t _I, typename... _Ts>
+struct TypeIndex_impl;
+template<size_t _I, typename _T, typename _T0, typename... _Ts>
+struct TypeIndex_impl<_I, _T, _T0, _Ts...>
+{
+  static constexpr auto value =
+    std::conditional_t<std::is_same<_T, _T0>::value,
+                      std::integral_constant<size_t, _I>,
+                      TypeIndex_impl<_I + 1, _T, _Ts...>>::value;
+};
+
+template<typename... _Ts>
+struct TypeIndex;
+template<typename _T, typename... _Ts>
+struct TypeIndex<_T, std::tuple<_Ts...>>
+{
+  static constexpr auto value = TypeIndex_impl<0, _T, _Ts...>::value;
+};
+
+//--------------------------------------------------------------------------
+
 template<template <typename...> class, typename, typename>
 struct TupleIndexFilter;
 template<template <typename...> class _Filter, typename _Tuple>
@@ -316,24 +332,12 @@ using TupleIndexFilter_t = typename TupleIndexFilter<_Filter, _Tuple,
 
 //--------------------------------------------------------------------------
 
-template<size_t _I, typename... _Ts>
-struct TypeIndex_impl;
-template<size_t _I, typename _T, typename _T0, typename... _Ts>
-struct TypeIndex_impl<_I, _T, _T0, _Ts...>
+/// @return tuple of references to a subset of the original tuple.
+template<typename _Tuple, size_t... _Is>
+constexpr auto tuple_ref_selection(const _Tuple& tuple, std::index_sequence<_Is...>)
 {
-  static constexpr auto value =
-    std::conditional_t<std::is_same<_T, _T0>::value,
-                      std::integral_constant<size_t, _I>,
-                      TypeIndex_impl<_I + 1, _T, _Ts...>>::value;
-};
-
-template<typename... _Ts>
-struct TypeIndex;
-template<typename _T, typename... _Ts>
-struct TypeIndex<_T, std::tuple<_Ts...>>
-{
-  static constexpr auto value = TypeIndex_impl<0, _T, _Ts...>::value;
-};
+  return std::make_tuple(std::ref(std::get<_Is>(tuple))...);
+}
 
 //--------------------------------------------------------------------------
 
