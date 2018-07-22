@@ -613,7 +613,7 @@ struct OpNotImpl;
 template<typename _F, typename... Args>
 struct OpNotImpl<_F, std::tuple<Args...>>
 {
-  OpNotImpl(_F f) : m_f{std::move(f)} {}
+  explicit OpNotImpl(_F f) : m_f{std::move(f)} {}
 
   bool operator()(Args&&... args) const
   {
@@ -656,7 +656,9 @@ struct OpBinaryImpl;
 template<typename _Expr, typename _F1, typename _F2, typename... Args1, typename... Args2>
 struct OpBinaryImpl<_Expr, _F1, std::tuple<Args1...>, _F2, std::tuple<Args2...>>
 {
-  OpBinaryImpl(_F1 f1, _F2 f2) : m_f1{std::move(f1)}, m_f2{std::move(f2)} {}
+  explicit OpBinaryImpl(_F1 f1, _F2 f2)
+    : m_f1{std::move(f1)}, m_f2{std::move(f2)}
+  {}
 
   constexpr bool operator()(Args1&&... args) const
   {
@@ -815,7 +817,7 @@ struct EventBundle
   using guard_t = _GuardF;
   using action_t = _ActionF;
 
-  constexpr EventBundle(_GuardF gf, _ActionF af) noexcept
+  explicit constexpr EventBundle(_GuardF gf, _ActionF af) noexcept
     : m_guard{std::move(gf)}, m_action{std::move(af)}
   {}
 
@@ -834,6 +836,8 @@ template<typename _T>
 struct Event
 {
   using base_t = _T;
+
+  explicit constexpr Event() = default;
 
   template<typename _ActionF,
           _DSML_REQUIRES(detail::IsAction<_ActionF>::value)>
@@ -1103,6 +1107,8 @@ struct State
   using base_t = _Base;
   using tags_t = _Tags;
 
+  explicit constexpr State() = default;
+
   template<typename _E>
   constexpr auto operator+(const Event<_E>&) const noexcept
   {
@@ -1193,7 +1199,7 @@ struct TableRow
   using dst_state_t = typename detail::WrapSubPoint<_DstS, detail::initial_t>::type;
   using dst_state_raw_t = _DstS;
 
-  constexpr TableRow(_Guard guard, _Action action)
+  explicit constexpr TableRow(_Guard guard, _Action action)
     : m_guard{std::move(guard)}, m_action{std::move(action)}
   {}
 
@@ -1206,7 +1212,7 @@ struct StateTransition
 {
   static_assert(IsState<_SrcS>::value, "");
 
-  constexpr StateTransition(_EventBundle event_bundle)
+  explicit constexpr StateTransition(_EventBundle event_bundle)
     : m_event_bundle{event_bundle}
   {}
 
@@ -1247,7 +1253,9 @@ struct TransitionTable
   static_assert(detail::HasType<State<detail::initial_t>, states_t>::value,
                 "table must have initial state");
 
-  constexpr TransitionTable(const _Rows& rows) noexcept : m_rows{rows} {}
+  explicit constexpr TransitionTable(const _Rows& rows) noexcept
+    : m_rows{rows}
+  {}
 
   const rows_t m_rows;
 };
