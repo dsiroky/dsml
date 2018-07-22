@@ -1076,9 +1076,9 @@ struct AddSubmachines;
 template<typename... _STs>
 struct AddSubmachines<std::tuple<_STs...>>
 {
-  constexpr auto operator()() const
+  static constexpr auto add()
   {
-      return std::tuple_cat(wrap_states<_STs>(expand_table<_STs>().m_rows)...);
+    return std::tuple_cat(wrap_states<_STs>(expand_table<_STs>().m_rows)...);
   }
 };
 
@@ -1090,7 +1090,7 @@ constexpr auto expand_table()
   const auto table_base = transition_table_from_machine_declaration<_MachineDecl>();
   return make_transition_table_from_tuple(std::tuple_cat(
             table_base.m_rows,
-            AddSubmachines<typename decltype(table_base)::submachine_types_t>{}()
+            AddSubmachines<typename decltype(table_base)::submachine_types_t>::add()
           ));
 }
 
