@@ -61,7 +61,7 @@ template<typename _T>
 struct IsEvent<Event<_T>> : std::true_type {};
 
 //==========================================================================
-namespace detail {
+namespace detail { namespace {
 //==========================================================================
 
 namespace {
@@ -806,7 +806,7 @@ struct GetCurrentStateName
 };
 
 //==========================================================================
-} // namespace
+}} // namespace
 //==========================================================================
 
 /// Groups together event, guard and action as a unification for the table row.
@@ -864,7 +864,7 @@ struct Event
 };
 
 //==========================================================================
-namespace detail {
+namespace detail { namespace {
 //==========================================================================
 
 template<typename _Rows, typename _Deps>
@@ -1095,7 +1095,7 @@ constexpr auto expand_table()
 }
 
 //==========================================================================
-} // namespace
+}} // namespace
 //==========================================================================
 
 template<typename _SrcS, typename _EventBundle>
