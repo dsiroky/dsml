@@ -359,9 +359,9 @@ void func()
 
 ## TODO
 - `unexpected_event`
-- more static asserts
+- multi-action
+- automatic dependencies like boost::sml
+- actions/guards can accept processed event
 - move private stuff to detail
 - compilation time optimizations
 - comments
-- automatic dependencies like boost::sml
-- documentation, examples
