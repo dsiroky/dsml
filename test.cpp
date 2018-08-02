@@ -836,6 +836,33 @@ TEST(Sm, TransitionAction)
 
 //--------------------------------------------------------------------------
 
+TEST(Sm, TransitionMultiAction)
+{
+  using V = std::vector<int>;
+
+  using namespace dsml::operators;
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1
+                    / (
+                        [](V& v){ v.push_back(1); },
+                        [](V& v){ v.push_back(2); },
+                        [](V& v){ v.push_back(3); }
+                      )
+                    = A
+
+  ); } };
+
+  V calls{};
+  dsml::Sm<MyMachine, V> sm{calls};
+
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(A));
+  EXPECT_EQ((std::vector<int>{{1, 2, 3}}), calls);
+}
+
+//--------------------------------------------------------------------------
+
 TEST(Sm, AnonymousTransitionAction)
 {
   struct Data
@@ -925,7 +952,7 @@ TEST(Sm, TransitionGuardWithNotOperator)
 {
   bool flag{true};
 
-  using namespace dsml::guard_operators;
+  using namespace dsml::operators;
 
   struct MyMachine { auto operator()() const noexcept {
           auto guard = [](const bool& flag_){ return flag_; };
@@ -953,7 +980,7 @@ TEST(Sm, TransitionGuardWithAndOperator)
     bool flag2{false};
   };
 
-  using namespace dsml::guard_operators;
+  using namespace dsml::operators;
 
   struct MyMachine { auto operator()() const noexcept {
           auto guard1 = [](Data& d){ return d.flag1; };
@@ -1007,7 +1034,7 @@ TEST(Sm, TransitionGuardWithOrOperator)
     bool flag2{false};
   };
 
-  using namespace dsml::guard_operators;
+  using namespace dsml::operators;
 
   struct MyMachine { auto operator()() const noexcept {
           auto guard1 = [](const Data& d){ return d.flag1; };
@@ -1146,7 +1173,7 @@ TEST(Sm, GuardAndActionAsMethodPointer)
   struct MyMachine { auto operator()() const noexcept {
 
     using dsml::callee;
-    using namespace dsml::guard_operators;
+    using namespace dsml::operators;
 
     return dsml::make_transition_table(
           dsml::initial_state = A

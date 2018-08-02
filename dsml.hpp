@@ -701,6 +701,41 @@ public:
 
 //--------------------------------------------------------------------------
 
+template<typename...>
+struct ActionBatchImpl;
+template<typename _Expr, typename _F1, typename _F2, typename... Args1, typename... Args2>
+struct ActionBatchImpl<_Expr, _F1, std::tuple<Args1...>, _F2, std::tuple<Args2...>>
+{
+  explicit ActionBatchImpl(_F1 f1, _F2 f2)
+    : m_f1{std::move(f1)}, m_f2{std::move(f2)}
+  {}
+
+  constexpr void operator()(Args1&&... args) const
+  {
+    auto tup = std::forward_as_tuple(args...);
+    call(m_f1, tup);
+    call(m_f2, tup);
+  }
+
+private:
+  const _F1 m_f1;
+  const _F2 m_f2;
+};
+
+template<typename _F1, typename _F2>
+struct ActionBatch : ActionBatchImpl<ExprOr,
+                          _F1, typename Callable<_F1>::args_t,
+                          _F2, typename Callable<_F2>::args_t>
+{
+public:
+  using super = ActionBatchImpl<ExprOr,
+                              _F1, typename Callable<_F1>::args_t,
+                              _F2, typename Callable<_F2>::args_t>;
+  using super::super;
+};
+
+//--------------------------------------------------------------------------
+
 struct anonymous_t { static auto c_str() noexcept { return "anonymous"; } };
 struct on_entry_t { static auto c_str() noexcept { return "on_entry"; } };
 struct on_exit_t { static auto c_str() noexcept { return "on_exit"; } };
@@ -1422,7 +1457,7 @@ auto operator""_e() {
 
 //==========================================================================
 
-namespace guard_operators {
+namespace operators {
 
 template<typename _F, _DSML_REQUIRES(detail::IsGuard<_F>::value)>
 auto operator!(_F func)
@@ -1444,6 +1479,14 @@ template<typename _F1, typename _F2,
 auto operator||(_F1 func1, _F2 func2)
 {
   return detail::OpOr<_F1, _F2>{std::move(func1), std::move(func2)};
+}
+
+template<typename _F1, typename _F2,
+        _DSML_REQUIRES(detail::IsAction<_F1>::value &&
+                        detail::IsAction<_F2>::value)>
+auto operator,(_F1 func1, _F2 func2)
+{
+  return detail::ActionBatch<_F1, _F2>{std::move(func1), std::move(func2)};
 }
 
 } // namespace

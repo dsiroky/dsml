@@ -150,7 +150,7 @@ const auto guard = [](){ return true; };
 You can combine guards into a logical expression:
 ```cpp
 // add this into your scope to enable guard logical expressions
-using dsml::guard_operators;
+using dsml::operators;
 ```
 ![diagram](diagrams/guard_combined.png)
 ```cpp
@@ -172,6 +172,23 @@ const auto action = [](){ do_something(); };
 ```cpp
 // with event
 "A"_s + "evt1"_e / action = "B"_s
+```
+
+#### Multiaction
+
+You can chain multiple actions together. First you have to "include" guard
+operators:
+
+```cpp
+// add this into your scope to enable actions chaining
+using dsml::operators;
+```
+
+Then you can chain actions separated with commas. Parentheses must be around the
+group.
+
+```cpp
+"A"_s + "evt1"_e / (action1, action2, action3) = "B"_s
 ```
 
 ### State entry/exit actions
@@ -235,7 +252,7 @@ struct MyMachine
   {
     using dsml::callee;
     using namespace dsml::literals;
-    using namespace dsml::guard_operators;
+    using namespace dsml::operators;
 
     return dsml::make_transition_table(
           dsml::initial_state + "evt1"_e [ guard ] / action = "A"_s
@@ -359,7 +376,6 @@ void func()
 
 ## TODO
 - `unexpected_event`
-- multi-action
 - automatic dependencies like boost::sml
 - actions/guards can accept processed event
 - move private stuff to detail
