@@ -176,8 +176,7 @@ const auto action = [](){ do_something(); };
 
 #### Multiaction
 
-You can chain multiple actions together. First you have to "include" guard
-operators:
+You can chain multiple actions together. First you have to "include" operators:
 
 ```cpp
 // add this into your scope to enable actions chaining
