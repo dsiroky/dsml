@@ -943,15 +943,17 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                           std::tuple_element_t<_I0, _FilteredRows>
                         >>;
     const auto& row = std::get<_I0>(filtered_rows);
-    const auto& guard = row.m_guard;
     bool processed{false};
     constexpr auto source_state =
                         state_number_v<typename row_t::src_state_t, _AllStates>;
-    if ((source_state == state) && call(guard, deps))
+    if (source_state == state)
     {
+      const auto& guard = row.m_guard;
       const auto allowed = call(guard, deps);
+
       detail::NotifyObserver<_Deps>::template guard<_Deps, decltype(guard)>
                                                         (deps, guard, allowed);
+
       if (allowed)
       {
         constexpr auto destination_state =
