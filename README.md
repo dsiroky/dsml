@@ -174,6 +174,9 @@ const auto action = [](){ do_something(); };
 "A"_s + "evt1"_e / action = "B"_s
 ```
 
+**Beware:** If you call `process_event()` inside the action then you will
+get undefined behaviour because the action is called "in between" states.
+
 #### Multiaction
 
 You can chain multiple actions together. First you have to "include" operators:
@@ -375,6 +378,8 @@ void func()
 
 ## TODO
 - `unexpected_event`
+- transitions from `dsml::final_state` not allowed
+- move ctor/assignment
 - automatic dependencies like boost::sml
 - actions/guards can accept processed event
 - move private stuff to detail
