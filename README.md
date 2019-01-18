@@ -379,6 +379,7 @@ void func()
 ## TODO
 - `unexpected_event`
 - transitions from `dsml::final_state` not allowed
+- policy for state storage automatic size deduction (now it is 4 bytes)
 - move ctor/assignment
 - automatic dependencies like boost::sml
 - actions/guards can accept processed event

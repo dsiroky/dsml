@@ -1312,8 +1312,14 @@ public:
   /// Dependencies are always passed as a reference. If the dependency is an
   /// rvalue then it will be moved to an internal value.
   explicit Sm(_Deps&... deps)
-    : m_deps{deps...}
+      : m_deps{deps...}
+      , m_state_number{
+            detail::TypeIndex<State<detail::initial_t>,
+                      typename table_types::transition_table_t::states_t>::value}
   {
+    static_assert(table_types::states_count
+                  <= std::numeric_limits<state_number_t>::max(),
+                  "state_number_t does not cover required states count");
     process_anonymous_events();
   }
 
@@ -1321,9 +1327,9 @@ public:
   constexpr bool is(const _State&) const noexcept
   {
     constexpr auto number = detail::TypeIndex<
-                                      std::remove_cv_t<_State>,
-                                      typename transition_table_t::states_t
-                                    >::value;
+                              std::remove_cv_t<_State>,
+                              typename table_types::transition_table_t::states_t
+                            >::value;
     return m_state_number == number;
   }
 
@@ -1332,19 +1338,19 @@ public:
   constexpr bool is_sub(const _State&, const _Submachines&...) const noexcept
   {
     constexpr auto number = detail::TypeIndex<
-                                      typename detail::WrapStateInLayers<
-                                                      std::remove_cv_t<_State>,
-                                                      _Submachines...
-                                                    >::type,
-                                      typename transition_table_t::states_t
-                                    >::value;
+                              typename detail::WrapStateInLayers<
+                                              std::remove_cv_t<_State>,
+                                              _Submachines...
+                                            >::type,
+                              typename table_types::transition_table_t::states_t
+                            >::value;
     return m_state_number == number;
   }
 
   const char* get_current_state_name()
   {
-    return detail::GetCurrentStateName<typename transition_table_t::states_t>{}(
-                                                                m_state_number);
+    return detail::GetCurrentStateName<
+        typename table_types::transition_table_t::states_t>{}(m_state_number);
   }
 
   template<typename _ET>
@@ -1358,11 +1364,16 @@ public:
 
 private:
   using deps_t = std::tuple<_Deps&...>;
-  using transition_table_t = decltype(detail::expand_table<_MachineDecl>());
+  using state_number_t = uint32_t;
 
-  static constexpr auto states_count =
-                  std::tuple_size<typename transition_table_t::states_t>::value;
-  using state_number_t = typename detail::MinimalUnsigned<states_count - 1>::type;
+  /// This wrapper avoids type deductions during Sm declaration.
+  struct table_types
+  {
+    using transition_table_t = decltype(detail::expand_table<_MachineDecl>());
+
+    static constexpr auto states_count =
+        std::tuple_size<typename transition_table_t::states_t>::value;
+  };
 
   //--------------------------------
 
@@ -1375,7 +1386,7 @@ private:
     using frows_t = decltype(filtered_rows);
     detail::NotifyObserver<deps_t>::template event<deps_t, decltype(evt)>(m_deps);
     return detail::ProcessSingleEventImpl<
-                            typename transition_table_t::states_t,
+                            typename table_types::transition_table_t::states_t,
                             decltype(table.m_rows),
                             deps_t,
                             state_number_t,
@@ -1395,10 +1406,7 @@ private:
 
   deps_t m_deps;
   /// actual state machine state
-  state_number_t m_state_number{detail::TypeIndex<
-                                    State<detail::initial_t>,
-                                    typename transition_table_t::states_t
-                                  >::value};
+  state_number_t m_state_number{};
 };
 
 //==========================================================================
