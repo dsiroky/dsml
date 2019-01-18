@@ -384,5 +384,6 @@ void func()
 - automatic dependencies like boost::sml
 - actions/guards can accept processed event
 - move private stuff to detail
+- deferred events
 - compilation time optimizations
 - comments
