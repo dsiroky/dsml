@@ -956,35 +956,35 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
 
       if (allowed)
       {
-        constexpr auto destination_state =
-                          state_number_v<typename row_t::dst_state_t, _AllStates>;
-        if (source_state != destination_state)
-        {
-          const auto exit_rows = detail::rows_with_dst_state(
-                                detail::rows_with_event(all_rows, Event<on_exit_t>{}),
-                                typename row_t::src_state_t{});
-          call_row_action(exit_rows, deps,
-                            std::conditional_t<IsEmptyTuple<decltype(exit_rows)>::value,
-                            std::false_type, std::true_type>{});
-        }
+        const auto exit_rows = detail::rows_with_dst_state(
+                              detail::rows_with_event(all_rows, Event<on_exit_t>{}),
+                              typename row_t::src_state_t{});
+        call_row_action(exit_rows, deps,
+                        std::conditional_t<IsEmptyTuple<decltype(exit_rows)>::value,
+                                           std::false_type, std::true_type>{});
+
         detail::NotifyObserver<_Deps>
                   ::template action<_Deps, decltype(row.m_action)>
                                               (deps, row.m_action);
         call(row.m_action, deps);
+
+        constexpr auto destination_state =
+                          state_number_v<typename row_t::dst_state_t, _AllStates>;
         if (source_state != destination_state)
         {
           state = destination_state;
-          detail::NotifyObserver<_Deps>::template state_change<
-                                            _Deps,
-                                            typename row_t::src_state_t,
-                                            typename row_t::dst_state_t>(deps);
-          const auto entry_rows = detail::rows_with_dst_state(
-                                detail::rows_with_event(all_rows, Event<on_entry_t>{}),
-                                typename row_t::dst_state_t{});
-          call_row_action(entry_rows, deps,
-                            std::conditional_t<IsEmptyTuple<decltype(entry_rows)>::value,
-                                              std::false_type, std::true_type>{});
         }
+
+        detail::NotifyObserver<_Deps>::template state_change<
+                                          _Deps,
+                                          typename row_t::src_state_t,
+                                          typename row_t::dst_state_t>(deps);
+        const auto entry_rows = detail::rows_with_dst_state(
+                              detail::rows_with_event(all_rows, Event<on_entry_t>{}),
+                              typename row_t::dst_state_t{});
+        call_row_action(entry_rows, deps,
+                          std::conditional_t<IsEmptyTuple<decltype(entry_rows)>::value,
+                                            std::false_type, std::true_type>{});
         processed = true;
       }
     }
@@ -1305,6 +1305,14 @@ constexpr auto make_transition_table(_Ts... rows)
 
 //==========================================================================
 
+static constexpr auto initial_state = State<detail::initial_t>{};
+static constexpr auto final_state = State<detail::final_t>{};
+static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
+static constexpr auto on_entry = Event<detail::on_entry_t>{};
+static constexpr auto on_exit = Event<detail::on_exit_t>{};
+
+//==========================================================================
+
 template<typename _MachineDecl, typename... _Deps>
 class Sm
 {
@@ -1320,6 +1328,16 @@ public:
     static_assert(table_types::states_count
                   <= std::numeric_limits<state_number_t>::max(),
                   "state_number_t does not cover required states count");
+
+    // on entry for initial_state
+    const auto table = detail::expand_table<_MachineDecl>();
+    const auto entry_rows = detail::rows_with_dst_state(
+                          detail::rows_with_event(table.m_rows, Event<detail::on_entry_t>{}),
+                          initial_state);
+    detail::call_row_action(entry_rows, m_deps,
+                      std::conditional_t<detail::IsEmptyTuple<decltype(entry_rows)>::value,
+                                        std::false_type, std::true_type>{});
+
     process_anonymous_events();
   }
 
@@ -1436,14 +1454,6 @@ auto get_type_name() {
   return detail::get_type_name_impl<T, 37>(__PRETTY_FUNCTION__, seq_t{});
 #endif
 }
-
-//==========================================================================
-
-static constexpr auto initial_state = State<detail::initial_t>{};
-static constexpr auto final_state = State<detail::final_t>{};
-static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
-static constexpr auto on_entry = Event<detail::on_entry_t>{};
-static constexpr auto on_exit = Event<detail::on_exit_t>{};
 
 //==========================================================================
 

@@ -1288,16 +1288,59 @@ TEST(Sm, OnEntryOnExit)
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
 
           dsml::initial_state + e1 = A
-          , A + dsml::on_entry / [](Data& data){ data.calls.push_back(2); }
-          , dsml::initial_state + dsml::on_exit / [](Data& data) { data.calls.push_back(1); }
+          , A + e2 = B
+
+          , dsml::initial_state + dsml::on_entry / [](Data& data) { data.calls.push_back(1); }
+          , dsml::initial_state + dsml::on_exit / [](Data& data) { data.calls.push_back(2); }
+          , A + dsml::on_entry / [](Data& data){ data.calls.push_back(3); }
+          , A + dsml::on_exit / [](Data& data){ data.calls.push_back(4); }
+          , B + dsml::on_entry / [](Data& data) { data.calls.push_back(5); }
+          , B + dsml::on_exit / [](Data& data) { data.calls.push_back(6); }
 
   ); } };
 
   Data data{};
   dsml::Sm<MyMachine, Data> sm{data};
 
+  EXPECT_EQ((std::vector<int>{1}), data.calls);
   sm.process_event(e1);
-  EXPECT_EQ((std::vector<int>{{1, 2}}), data.calls);
+  EXPECT_EQ((std::vector<int>{{1, 2, 3}}), data.calls);
+  sm.process_event(e2);
+  EXPECT_EQ((std::vector<int>{{1, 2, 3, 4, 5}}), data.calls);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, OnEntryOnExitLoopToSameState)
+{
+  struct Data
+  {
+    std::vector<int> calls{};
+  };
+
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1 = dsml::initial_state
+          , dsml::initial_state + e2 = A
+          , A + e3 = A
+
+          , dsml::initial_state + dsml::on_entry / [](Data& data) { data.calls.push_back(1); }
+          , dsml::initial_state + dsml::on_exit / [](Data& data) { data.calls.push_back(2); }
+          , A + dsml::on_entry / [](Data& data) { data.calls.push_back(3); }
+          , A + dsml::on_exit / [](Data& data) { data.calls.push_back(4); }
+
+  ); } };
+
+  Data data{};
+  dsml::Sm<MyMachine, Data> sm{data};
+
+  EXPECT_EQ((std::vector<int>{1}), data.calls);
+  sm.process_event(e1);
+  EXPECT_EQ((std::vector<int>{{1, 2, 1}}), data.calls);
+  sm.process_event(e2);
+  EXPECT_EQ((std::vector<int>{{1, 2, 1, 2, 3}}), data.calls);
+  sm.process_event(e3);
+  EXPECT_EQ((std::vector<int>{{1, 2, 1, 2, 3, 4, 3}}), data.calls);
 }
 
 //--------------------------------------------------------------------------
@@ -1322,37 +1365,6 @@ TEST(Sm, OnEntryOnExitAndActionBetween)
 
   sm.process_event(e1);
   EXPECT_EQ((std::vector<int>{{1, 0, 2}}), data.calls);
-}
-
-//--------------------------------------------------------------------------
-
-TEST(Sm, OnEntryOnExitMultipleStates)
-{
-  struct Data
-  {
-    std::vector<int> calls{};
-  };
-
-  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
-
-          dsml::initial_state + e1 = A
-          , A + e2 = B
-
-          , dsml::initial_state + dsml::on_entry / [](Data& data) { data.calls.push_back(0); }
-          , dsml::initial_state + dsml::on_exit / [](Data& data) { data.calls.push_back(1); }
-          , A + dsml::on_entry / [](Data& data){ data.calls.push_back(2); }
-          , A + dsml::on_exit / [](Data& data){ data.calls.push_back(3); }
-          , B + dsml::on_entry / [](Data& data){ data.calls.push_back(4); }
-          , B + dsml::on_exit / [](Data& data){ data.calls.push_back(5); }
-
-  ); } };
-
-  Data data{};
-  dsml::Sm<MyMachine, Data> sm{data};
-
-  sm.process_event(e1);
-  sm.process_event(e2);
-  EXPECT_EQ((std::vector<int>{{1, 2, 3, 4}}), data.calls);
 }
 
 //==========================================================================
