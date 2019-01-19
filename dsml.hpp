@@ -1346,6 +1346,16 @@ public:
                   <= std::numeric_limits<state_number_t>::max(),
                   "state_number_t does not cover required states count");
 
+    reset();
+  }
+
+  // reset the SM to its initial state
+  void reset()
+  {
+    m_state_number =
+            detail::TypeIndex<State<detail::initial_t>,
+                      typename table_types::transition_table_t::states_t>::value;
+
     // on entry for initial_state
     const auto table = detail::expand_table<_MachineDecl>();
     const auto entry_rows = detail::rows_with_dst_state(

@@ -387,9 +387,19 @@ void func()
 }
 ```
 
+### Miscelaneous
+
+#### Reset the state machine
+
+```cpp
+dsml::Sm<MyMachine> sm{};
+sm.process_event("evt"_e);
+sm.reset();
+assert(sm.is(dsml::initial_state));
+```
+
 ## TODO
 - policy for state storage automatic size deduction (now it is 4 bytes)
-- move ctor/assignment
 - automatic dependencies like boost::sml
 - actions/guards can accept processed event
 - move private stuff to detail

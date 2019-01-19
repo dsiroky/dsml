@@ -1425,6 +1425,23 @@ TEST(Sm, UnexpectedEventWithHandler_ChangesState)
   }
 }
 
+//--------------------------------------------------------------------------
+
+TEST(Sm, Reset)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          A + e2 = B
+          , dsml::initial_state + e1 = A
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+  sm.process_event(e1);
+  sm.reset();
+  EXPECT_TRUE(sm.is(dsml::initial_state));
+}
+
 //==========================================================================
 
 TEST(SmComposite, AnonymousTransitions_IsInTheSubStateInitialState)
