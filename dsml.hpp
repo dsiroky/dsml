@@ -1150,6 +1150,8 @@ struct State
   template<typename _E>
   constexpr auto operator+(const Event<_E>&) const noexcept
   {
+    must_be_non_final<base_t>();
+
     using eb_t = EventBundle<Event<_E>,
                                 decltype(detail::always_true_guard),
                                 decltype(detail::no_action)>;
@@ -1161,6 +1163,8 @@ struct State
   template<typename _E, typename _GuardF, typename _ActionF>
   constexpr auto operator+(const EventBundle<_E, _GuardF, _ActionF>& eb) const noexcept
   {
+    must_be_non_final<base_t>();
+
     using tag_t = std::conditional_t<
                 detail::IsStateActionEvent<
                                   typename std::decay_t<decltype(eb)>::event_t
@@ -1174,6 +1178,7 @@ struct State
           _DSML_REQUIRES(detail::IsGuard<_F>::value)>
   constexpr auto operator[](_F guard) const noexcept
   {
+    must_be_non_final<base_t>();
     return *this + Event<detail::anonymous_t>{} [ guard ];
   }
 
@@ -1181,12 +1186,14 @@ struct State
           _DSML_REQUIRES(detail::IsAction<_F>::value)>
   constexpr auto operator/(_F action) const noexcept
   {
+    must_be_non_final<base_t>();
     return *this + Event<detail::anonymous_t>{} / action;
   }
 
   template<typename _DstS>
   constexpr auto operator=(const State<_DstS>& dst) const noexcept
   {
+    must_be_non_final<base_t>();
     return *this + Event<detail::anonymous_t>{} = dst;
   }
 
@@ -1212,6 +1219,14 @@ private:
   {
     // make a loop to itself to have unified table rows
     return StateTransition<State<base_t>, EventBundle<_E, _GuardF, _ActionF>>{eb} = State{};
+  }
+
+  // just for a static check
+  template<typename _B>
+  static void must_be_non_final()
+  {
+    static_assert(not std::is_same<_B, detail::final_t>::value,
+                  "can't add an event to a final state");
   }
 };
 
