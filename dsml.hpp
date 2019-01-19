@@ -739,6 +739,7 @@ public:
 struct anonymous_t { static auto c_str() noexcept { return "anonymous"; } };
 struct on_entry_t { static auto c_str() noexcept { return "on_entry"; } };
 struct on_exit_t { static auto c_str() noexcept { return "on_exit"; } };
+struct unexpected_t { static auto c_str() noexcept { return "unexpected"; } };
 struct initial_t { static auto c_str() noexcept { return "initial"; } };
 struct final_t { static auto c_str() noexcept { return "final"; } };
 
@@ -1310,6 +1311,7 @@ static constexpr auto final_state = State<detail::final_t>{};
 static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
 static constexpr auto on_entry = Event<detail::on_entry_t>{};
 static constexpr auto on_exit = Event<detail::on_exit_t>{};
+static constexpr auto unexpected_event = Event<detail::unexpected_t>{};
 
 //==========================================================================
 
@@ -1397,7 +1399,7 @@ private:
 
   /// @return true if transition was executed
   template<typename _ET>
-  constexpr bool process_single_event(const Event<_ET>& evt)
+  constexpr bool process_raw_event(const Event<_ET>& evt)
   {
     const auto table = detail::expand_table<_MachineDecl>();
     auto filtered_rows = detail::rows_with_event(table.m_rows, evt);
@@ -1414,9 +1416,20 @@ private:
                     ::process(table.m_rows, filtered_rows, m_state_number, m_deps);
   }
 
+  //--------------------------------
+
+  /// @return true if transition was executed
+  template<typename _ET>
+  constexpr bool process_single_event(const Event<_ET>& evt)
+  {
+    return process_raw_event(evt) or process_raw_event(unexpected_event);
+  }
+
+  //--------------------------------
+
   void process_anonymous_events()
   {
-    while (process_single_event(Event<detail::anonymous_t>{}))
+    while (process_raw_event(Event<detail::anonymous_t>{}))
     { }
   }
 

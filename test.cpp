@@ -1367,6 +1367,64 @@ TEST(Sm, OnEntryOnExitAndActionBetween)
   EXPECT_EQ((std::vector<int>{{1, 0, 2}}), data.calls);
 }
 
+//--------------------------------------------------------------------------
+
+TEST(Sm, UnexpectedEventWithoutHandler_DoesNotChangeState)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1 = A
+          , A + e2 = B
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+
+  sm.process_event(e4);
+  EXPECT_TRUE(sm.is(dsml::initial_state));
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(A));
+  sm.process_event(e4);
+  EXPECT_TRUE(sm.is(A));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, UnexpectedEventWithHandler_ChangesState)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1 = A
+          , dsml::initial_state + dsml::unexpected_event = C
+          , A + e2 = B
+          , A + dsml::unexpected_event = D
+
+  ); } };
+
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e4);
+    EXPECT_TRUE(sm.is(C));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(B));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    sm.process_event(e4);
+    EXPECT_TRUE(sm.is(D));
+  }
+}
+
 //==========================================================================
 
 TEST(SmComposite, AnonymousTransitions_IsInTheSubStateInitialState)

@@ -221,6 +221,17 @@ const auto action = [](){ do_something(); };
 "A"_s + "evt1"_e [ guard ] / action = "B"_s
 ```
 
+### Handling unexpected events
+
+```cpp
+  "A"_s + "evt1"_e = "B"_s
+, "A"_s + "evt2"_e = "C"_s
+, "A"_s + dsml::unexpected_event = "D"_s
+```
+
+Calling `process_event` function with any event other than `"evt1"_e` or
+`"evt2"_e` will transition to state `D`.
+
 ### Dependencies
 
 Useful to connect the SM with non-global logic. You can use lambdas (or free
@@ -377,7 +388,6 @@ void func()
 ```
 
 ## TODO
-- `unexpected_event`
 - transitions from `dsml::final_state` not allowed
 - policy for state storage automatic size deduction (now it is 4 bytes)
 - move ctor/assignment
