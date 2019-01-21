@@ -1413,7 +1413,7 @@ public:
 
 private:
   using deps_t = std::tuple<_Deps&...>;
-  using state_number_t = uint32_t;
+  using state_number_t = uint_fast16_t;
 
   /// This wrapper avoids type deductions during Sm declaration.
   struct table_types

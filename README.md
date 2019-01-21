@@ -399,6 +399,7 @@ assert(sm.is(dsml::initial_state));
 ```
 
 ## TODO
+- policy for asserting no recursive event processing
 - policy for state storage automatic size deduction (now it is 4 bytes)
 - automatic dependencies like boost::sml
 - actions/guards can accept processed event
