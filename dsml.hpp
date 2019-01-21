@@ -957,6 +957,14 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
 
       if (allowed)
       {
+        constexpr auto destination_state
+            = state_number_v<typename row_t::dst_state_t, _AllStates>;
+        if (state != destination_state)
+        {
+          state = destination_state;
+        }
+
+        // on exit action
         const auto exit_rows = detail::rows_with_dst_state(
                               detail::rows_with_event(all_rows, Event<on_exit_t>{}),
                               typename row_t::src_state_t{});
@@ -964,22 +972,18 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                         std::conditional_t<IsEmptyTuple<decltype(exit_rows)>::value,
                                            std::false_type, std::true_type>{});
 
+        // event action
         detail::NotifyObserver<_Deps>
                   ::template action<_Deps, decltype(row.m_action)>
                                               (deps, row.m_action);
         call(row.m_action, deps);
 
-        constexpr auto destination_state =
-                          state_number_v<typename row_t::dst_state_t, _AllStates>;
-        if (source_state != destination_state)
-        {
-          state = destination_state;
-        }
-
         detail::NotifyObserver<_Deps>::template state_change<
                                           _Deps,
                                           typename row_t::src_state_t,
                                           typename row_t::dst_state_t>(deps);
+
+        // on entry action
         const auto entry_rows = detail::rows_with_dst_state(
                               detail::rows_with_event(all_rows, Event<on_entry_t>{}),
                               typename row_t::dst_state_t{});
