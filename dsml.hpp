@@ -959,7 +959,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
       {
         constexpr auto destination_state
             = state_number_v<typename row_t::dst_state_t, _AllStates>;
-        if (state != destination_state)
+        if (source_state != destination_state)
         {
           state = destination_state;
         }
