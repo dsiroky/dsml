@@ -954,84 +954,21 @@ static void call_row_action(const _Rows&, _Deps&, std::false_type)
 
 //==========================================================================
 
-/// Go through rows and try to match it against current state and filter by
-/// guards.
-template<typename...>
-struct ProcessSingleEventAnyStateImpl;
-template<typename _AllStates, typename _AllRows, typename _Deps, typename _StateNum,
-          typename _FilteredRows>
-struct ProcessSingleEventAnyStateImpl<_AllStates, _AllRows, _Deps, _StateNum, _FilteredRows,
-                                std::index_sequence<>>
+struct StateComparator
 {
-  static constexpr bool process(const _AllRows&, const _FilteredRows&,
-                                _StateNum&, _Deps&) noexcept
+  template<typename _T>
+  constexpr static bool eq(_T s1, _T s2)
   {
-    return false;
+    return s1 == s2;
   }
 };
-template<typename _AllStates, typename _AllRows, typename _Deps, typename _StateNum,
-          typename _FilteredRows, size_t _I0, size_t... _Is>
-struct ProcessSingleEventAnyStateImpl<_AllStates, _AllRows, _Deps, _StateNum,
-                              _FilteredRows, std::index_sequence<_I0, _Is...>>
+
+struct StateComparatorTautology
 {
-  static constexpr bool process(const _AllRows& all_rows,
-                                const _FilteredRows& filtered_rows,
-                                _StateNum& state,
-                                _Deps& deps)
+  template<typename _T>
+  constexpr static bool eq(_T, _T)
   {
-    using row_t = std::remove_const_t<std::remove_reference_t<
-                          std::tuple_element_t<_I0, _FilteredRows>
-                        >>;
-    const auto& row = std::get<_I0>(filtered_rows);
-    bool processed{false};
-    const auto& guard = row.m_guard;
-    const auto allowed = call(guard, deps);
-
-    detail::NotifyObserver<_Deps>::template guard<_Deps, decltype(guard)>
-      (deps, guard, allowed);
-
-    if (allowed)
-    {
-      constexpr auto destination_state
-        = state_number_v<typename row_t::dst_state_t, _AllStates>;
-      if (state != destination_state)
-      {
-        state = destination_state;
-      }
-
-      // on exit action
-      const auto exit_rows = detail::rows_with_dst_state(
-          detail::rows_with_event(all_rows, Event<on_exit_t>{}),
-          typename row_t::src_state_t{});
-      call_row_action(exit_rows, deps,
-          std::conditional_t<IsEmptyTuple<decltype(exit_rows)>::value,
-          std::false_type, std::true_type>{});
-
-      // event action
-      detail::NotifyObserver<_Deps>
-        ::template action<_Deps, decltype(row.m_action)>
-        (deps, row.m_action);
-      call(row.m_action, deps);
-
-      detail::NotifyObserver<_Deps>::template state_change<
-        _Deps,
-        typename row_t::src_state_t,
-        typename row_t::dst_state_t>(deps);
-
-      // on entry action
-      const auto entry_rows = detail::rows_with_dst_state(
-          detail::rows_with_event(all_rows, Event<on_entry_t>{}),
-          typename row_t::dst_state_t{});
-      call_row_action(entry_rows, deps,
-          std::conditional_t<IsEmptyTuple<decltype(entry_rows)>::value,
-          std::false_type, std::true_type>{});
-      processed = true;
-    }
-
-    return processed ||
-          ProcessSingleEventAnyStateImpl<_AllStates, _AllRows, _Deps, _StateNum,
-                                _FilteredRows, std::index_sequence<_Is...>>
-              ::process(all_rows, filtered_rows, state, deps);
+    return true;
   }
 };
 
@@ -1042,9 +979,9 @@ struct ProcessSingleEventAnyStateImpl<_AllStates, _AllRows, _Deps, _StateNum,
 template<typename...>
 struct ProcessSingleEventImpl;
 template<typename _AllStates, typename _AllRows, typename _Deps, typename _StateNum,
-          typename _FilteredRows>
+          typename _FilteredRows, typename _StateComparator>
 struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum, _FilteredRows,
-                                std::index_sequence<>>
+                                _StateComparator, std::index_sequence<>>
 {
   static constexpr bool process(const _AllRows&, const _FilteredRows&,
                                 _StateNum&, _Deps&) noexcept
@@ -1053,9 +990,10 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum, _FilteredR
   }
 };
 template<typename _AllStates, typename _AllRows, typename _Deps, typename _StateNum,
-          typename _FilteredRows, size_t _I0, size_t... _Is>
+          typename _FilteredRows, typename _StateComparator, size_t _I0, size_t... _Is>
 struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
-                              _FilteredRows, std::index_sequence<_I0, _Is...>>
+                              _FilteredRows, _StateComparator,
+                              std::index_sequence<_I0, _Is...>>
 {
   static constexpr bool process(const _AllRows& all_rows,
                                 const _FilteredRows& filtered_rows,
@@ -1069,7 +1007,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
     bool processed{false};
     constexpr auto source_state =
                         state_number_v<typename row_t::src_state_t, _AllStates>;
-    if (source_state == state)
+    if (_StateComparator::eq(source_state, state))
     {
       const auto& guard = row.m_guard;
       const auto allowed = call(guard, deps);
@@ -1118,7 +1056,8 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
 
     return processed ||
           ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
-                                _FilteredRows, std::index_sequence<_Is...>>
+                                _FilteredRows, _StateComparator,
+                                std::index_sequence<_Is...>>
               ::process(all_rows, filtered_rows, state, deps);
   }
 };
@@ -1557,6 +1496,7 @@ private:
                             deps_t,
                             state_number_t,
                             frows_t,
+                            detail::StateComparator,
                             std::make_index_sequence<std::tuple_size<frows_t>::value>
                           >
                     ::process(table.m_rows, filtered_rows, m_state_number, m_deps);
@@ -1573,12 +1513,13 @@ private:
                                     detail::rows_with_event(table.m_rows, evt),
                                     any_state);
     using frows_t = decltype(filtered_rows);
-    return detail::ProcessSingleEventAnyStateImpl<
+    return detail::ProcessSingleEventImpl<
                             typename table_types::transition_table_t::states_t,
                             decltype(table.m_rows),
                             deps_t,
                             state_number_t,
                             frows_t,
+                            detail::StateComparatorTautology,
                             std::make_index_sequence<std::tuple_size<frows_t>::value>
                           >
                     ::process(table.m_rows, filtered_rows, m_state_number, m_deps);
