@@ -1005,8 +1005,8 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                         >>;
     const auto& row = std::get<_I0>(filtered_rows);
     bool processed{false};
-    constexpr auto source_state =
-                        state_number_v<typename row_t::src_state_t, _AllStates>;
+    constexpr auto source_state
+        = static_cast<_StateNum>(state_number_v<typename row_t::src_state_t, _AllStates>);
     if (_StateComparator::eq(source_state, state))
     {
       const auto& guard = row.m_guard;
@@ -1532,9 +1532,9 @@ private:
   constexpr bool process_single_event(const Event<_ET>& evt)
   {
     return process_raw_event(evt)
-            or process_raw_event(unexpected_event)
-            or process_any_state_raw_event(evt)
-            or process_any_state_raw_event(unexpected_event);
+            || process_raw_event(unexpected_event)
+            || process_any_state_raw_event(evt)
+            || process_any_state_raw_event(unexpected_event);
   }
 
   //--------------------------------
