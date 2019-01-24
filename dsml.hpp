@@ -742,6 +742,25 @@ struct on_exit_t { static auto c_str() noexcept { return "on_exit"; } };
 struct unexpected_t { static auto c_str() noexcept { return "unexpected"; } };
 struct initial_t { static auto c_str() noexcept { return "initial"; } };
 struct final_t { static auto c_str() noexcept { return "final"; } };
+struct any_t { static auto c_str() noexcept { return "any"; } };
+
+//--------------------------------------------------------------------------
+
+// just for a static check
+template<typename _B>
+static void must_not_be_final()
+{
+  static_assert(!std::is_same<_B, detail::final_t>::value,
+                "can't add an event to a final state");
+}
+
+// just for a static check
+template<typename _B>
+static void must_not_be_any()
+{
+  static_assert(!std::is_same<_B, detail::any_t>::value,
+                "can't transition to any_state");
+}
 
 //--------------------------------------------------------------------------
 
@@ -791,6 +810,24 @@ constexpr auto rows_with_event(const _Rows& rows, const _Event&)
 //--------------------------------------------------------------------------
 
 template<typename _Rows, typename _State>
+struct RowsWithSrcStateIndices
+{
+  template<typename _Row>
+  struct filter_t : std::is_same<typename std::decay_t<_Row>::src_state_t, _State> {};
+  using indices_t = TupleIndexFilter_t<filter_t, _Rows>;
+};
+
+/// @return tuple of references to rows where the source state is present
+template<typename _Rows, typename _State>
+constexpr auto rows_with_src_state(const _Rows& rows, const _State&)
+{
+  using indices_t = typename RowsWithSrcStateIndices<std::decay_t<_Rows>, _State>::indices_t;
+  return tuple_ref_selection(rows, indices_t{});
+}
+
+//--------------------------------------------------------------------------
+
+template<typename _Rows, typename _State>
 struct RowsWithDstStateIndices
 {
   template<typename _Row>
@@ -798,7 +835,7 @@ struct RowsWithDstStateIndices
   using indices_t = TupleIndexFilter_t<filter_t, _Rows>;
 };
 
-/// @return tuple of references to rows where the event is present
+/// @return tuple of references to rows where the destination state is present
 template<typename _Rows, typename _State>
 constexpr auto rows_with_dst_state(const _Rows& rows, const _State&)
 {
@@ -914,6 +951,91 @@ static void call_row_action(const _Rows&, _Deps&, std::false_type)
 {
   // do nothing
 }
+
+//==========================================================================
+
+/// Go through rows and try to match it against current state and filter by
+/// guards.
+template<typename...>
+struct ProcessSingleEventAnyStateImpl;
+template<typename _AllStates, typename _AllRows, typename _Deps, typename _StateNum,
+          typename _FilteredRows>
+struct ProcessSingleEventAnyStateImpl<_AllStates, _AllRows, _Deps, _StateNum, _FilteredRows,
+                                std::index_sequence<>>
+{
+  static constexpr bool process(const _AllRows&, const _FilteredRows&,
+                                _StateNum&, _Deps&) noexcept
+  {
+    return false;
+  }
+};
+template<typename _AllStates, typename _AllRows, typename _Deps, typename _StateNum,
+          typename _FilteredRows, size_t _I0, size_t... _Is>
+struct ProcessSingleEventAnyStateImpl<_AllStates, _AllRows, _Deps, _StateNum,
+                              _FilteredRows, std::index_sequence<_I0, _Is...>>
+{
+  static constexpr bool process(const _AllRows& all_rows,
+                                const _FilteredRows& filtered_rows,
+                                _StateNum& state,
+                                _Deps& deps)
+  {
+    using row_t = std::remove_const_t<std::remove_reference_t<
+                          std::tuple_element_t<_I0, _FilteredRows>
+                        >>;
+    const auto& row = std::get<_I0>(filtered_rows);
+    bool processed{false};
+    const auto& guard = row.m_guard;
+    const auto allowed = call(guard, deps);
+
+    detail::NotifyObserver<_Deps>::template guard<_Deps, decltype(guard)>
+      (deps, guard, allowed);
+
+    if (allowed)
+    {
+      constexpr auto destination_state
+        = state_number_v<typename row_t::dst_state_t, _AllStates>;
+      if (state != destination_state)
+      {
+        state = destination_state;
+      }
+
+      // on exit action
+      const auto exit_rows = detail::rows_with_dst_state(
+          detail::rows_with_event(all_rows, Event<on_exit_t>{}),
+          typename row_t::src_state_t{});
+      call_row_action(exit_rows, deps,
+          std::conditional_t<IsEmptyTuple<decltype(exit_rows)>::value,
+          std::false_type, std::true_type>{});
+
+      // event action
+      detail::NotifyObserver<_Deps>
+        ::template action<_Deps, decltype(row.m_action)>
+        (deps, row.m_action);
+      call(row.m_action, deps);
+
+      detail::NotifyObserver<_Deps>::template state_change<
+        _Deps,
+        typename row_t::src_state_t,
+        typename row_t::dst_state_t>(deps);
+
+      // on entry action
+      const auto entry_rows = detail::rows_with_dst_state(
+          detail::rows_with_event(all_rows, Event<on_entry_t>{}),
+          typename row_t::dst_state_t{});
+      call_row_action(entry_rows, deps,
+          std::conditional_t<IsEmptyTuple<decltype(entry_rows)>::value,
+          std::false_type, std::true_type>{});
+      processed = true;
+    }
+
+    return processed ||
+          ProcessSingleEventAnyStateImpl<_AllStates, _AllRows, _Deps, _StateNum,
+                                _FilteredRows, std::index_sequence<_Is...>>
+              ::process(all_rows, filtered_rows, state, deps);
+  }
+};
+
+//==========================================================================
 
 /// Go through rows and try to match it against current state and filter by
 /// guards.
@@ -1154,7 +1276,7 @@ struct State
   template<typename _E>
   constexpr auto operator+(const Event<_E>&) const noexcept
   {
-    must_be_non_final<base_t>();
+    detail::must_not_be_final<base_t>();
 
     using eb_t = EventBundle<Event<_E>,
                                 decltype(detail::always_true_guard),
@@ -1167,7 +1289,7 @@ struct State
   template<typename _E, typename _GuardF, typename _ActionF>
   constexpr auto operator+(const EventBundle<_E, _GuardF, _ActionF>& eb) const noexcept
   {
-    must_be_non_final<base_t>();
+    detail::must_not_be_final<base_t>();
 
     using tag_t = std::conditional_t<
                 detail::IsStateActionEvent<
@@ -1182,7 +1304,7 @@ struct State
           _DSML_REQUIRES(detail::IsGuard<_F>::value)>
   constexpr auto operator[](_F guard) const noexcept
   {
-    must_be_non_final<base_t>();
+    detail::must_not_be_final<base_t>();
     return *this + Event<detail::anonymous_t>{} [ guard ];
   }
 
@@ -1190,14 +1312,15 @@ struct State
           _DSML_REQUIRES(detail::IsAction<_F>::value)>
   constexpr auto operator/(_F action) const noexcept
   {
-    must_be_non_final<base_t>();
+    detail::must_not_be_final<base_t>();
     return *this + Event<detail::anonymous_t>{} / action;
   }
 
   template<typename _DstS>
   constexpr auto operator=(const State<_DstS>& dst) const noexcept
   {
-    must_be_non_final<base_t>();
+    detail::must_not_be_final<base_t>();
+    detail::must_not_be_any<_DstS>();
     return *this + Event<detail::anonymous_t>{} = dst;
   }
 
@@ -1223,14 +1346,6 @@ private:
   {
     // make a loop to itself to have unified table rows
     return StateTransition<State<base_t>, EventBundle<_E, _GuardF, _ActionF>>{eb} = State{};
-  }
-
-  // just for a static check
-  template<typename _B>
-  static void must_be_non_final()
-  {
-    static_assert(not std::is_same<_B, detail::final_t>::value,
-                  "can't add an event to a final state");
   }
 };
 
@@ -1276,6 +1391,7 @@ struct StateTransition
   template<typename _DstS>
   constexpr auto operator=(const State<_DstS>&) const noexcept
   {
+    detail::must_not_be_any<_DstS>();
     return TableRow<_SrcS,
                     typename _EventBundle::event_t,
                     typename _EventBundle::guard_t,
@@ -1327,6 +1443,7 @@ constexpr auto make_transition_table(_Ts... rows)
 
 static constexpr auto initial_state = State<detail::initial_t>{};
 static constexpr auto final_state = State<detail::final_t>{};
+static constexpr auto any_state = State<detail::any_t>{};
 static constexpr auto anonymous_event = Event<detail::anonymous_t>{};
 static constexpr auto on_entry = Event<detail::on_entry_t>{};
 static constexpr auto on_exit = Event<detail::on_exit_t>{};
@@ -1449,9 +1566,34 @@ private:
 
   /// @return true if transition was executed
   template<typename _ET>
+  constexpr bool process_any_state_raw_event(const Event<_ET>& evt)
+  {
+    const auto table = detail::expand_table<_MachineDecl>();
+    auto filtered_rows = detail::rows_with_src_state(
+                                    detail::rows_with_event(table.m_rows, evt),
+                                    any_state);
+    using frows_t = decltype(filtered_rows);
+    return detail::ProcessSingleEventAnyStateImpl<
+                            typename table_types::transition_table_t::states_t,
+                            decltype(table.m_rows),
+                            deps_t,
+                            state_number_t,
+                            frows_t,
+                            std::make_index_sequence<std::tuple_size<frows_t>::value>
+                          >
+                    ::process(table.m_rows, filtered_rows, m_state_number, m_deps);
+  }
+
+  //--------------------------------
+
+  /// @return true if transition was executed
+  template<typename _ET>
   constexpr bool process_single_event(const Event<_ET>& evt)
   {
-    return process_raw_event(evt) or process_raw_event(unexpected_event);
+    return process_raw_event(evt)
+            or process_raw_event(unexpected_event)
+            or process_any_state_raw_event(evt)
+            or process_any_state_raw_event(unexpected_event);
   }
 
   //--------------------------------

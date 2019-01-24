@@ -1427,6 +1427,115 @@ TEST(Sm, UnexpectedEventWithHandler_ChangesState)
 
 //--------------------------------------------------------------------------
 
+TEST(Sm, AnyState)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::any_state + e3 = C
+          , dsml::any_state + e4 = D
+          , dsml::initial_state + e1 = A
+          , A + e2 = B
+
+  ); } };
+
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
+    sm.process_event(e2);
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(B));
+    sm.process_event(e3);
+    EXPECT_TRUE(sm.is(C));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(dsml::initial_state));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e3);
+    EXPECT_TRUE(sm.is(C));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e4);
+    EXPECT_TRUE(sm.is(D));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e3);
+    sm.process_event(e3);
+    EXPECT_TRUE(sm.is(C));
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, AnyStateWithTheSameEvent)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::any_state + e1 = C // lower priority
+          , dsml::initial_state + e1 = A
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+  sm.process_event(e1);
+  EXPECT_TRUE(sm.is(A));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, AnyStateWithUnexpectedEvent)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          A + dsml::unexpected_event = C
+          , dsml::any_state + dsml::unexpected_event = E // lowest priority
+          , dsml::any_state + e3 = D // lower priority
+          , dsml::initial_state + e1 = A
+          , A + e2 = B
+
+  ); } };
+
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(E));
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(E));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e3);
+    EXPECT_TRUE(sm.is(D));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
+    sm.process_event(e3);
+    EXPECT_TRUE(sm.is(C));
+    sm.process_event(e3);
+    EXPECT_TRUE(sm.is(D));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(B));
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(E));
+  }
+}
+
+//--------------------------------------------------------------------------
+
 TEST(Sm, Reset)
 {
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
