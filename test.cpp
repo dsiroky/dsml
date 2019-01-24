@@ -1427,6 +1427,52 @@ TEST(Sm, UnexpectedEventWithHandler_ChangesState)
 
 //--------------------------------------------------------------------------
 
+TEST(Sm, UnexpectedEventWithFalseGuard)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1 = A
+          , dsml::initial_state + dsml::unexpected_event [ false_guard ] = B
+
+  ); } };
+
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(dsml::initial_state));
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, UnexpectedEventWithTrueGuard)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1 = A
+          , dsml::initial_state + dsml::unexpected_event [ true_guard ] = B
+
+  ); } };
+
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(B));
+  }
+}
+
+//--------------------------------------------------------------------------
+
 TEST(Sm, AnyState)
 {
   struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
@@ -1531,6 +1577,52 @@ TEST(Sm, AnyStateWithUnexpectedEvent)
     EXPECT_TRUE(sm.is(B));
     sm.process_event(e2);
     EXPECT_TRUE(sm.is(E));
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, AnyStateWithFalseGuard)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+        dsml::initial_state + e1 = A
+        , dsml::any_state + e2 [ false_guard ] = B
+
+  ); } };
+
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(dsml::initial_state));
+  }
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, AnyStateWithTrueGuard)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+        dsml::initial_state + e1 = A
+        , dsml::any_state + e2 [ true_guard ] = B
+
+  ); } };
+
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e1);
+    EXPECT_TRUE(sm.is(A));
+  }
+  {
+    dsml::Sm<MyMachine> sm{};
+    sm.process_event(e2);
+    EXPECT_TRUE(sm.is(B));
   }
 }
 
