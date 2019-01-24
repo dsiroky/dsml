@@ -8,6 +8,27 @@ Motivation to create another SM library was to have well implemented anonymous
 transitions and more straightforward approach to composite state machines.
 *dsml* aims to be almost UML compliant.
 
+## Table of contents
+
+* [Main goals](#main-goals)
+* [Requirements](#requirements)
+* [Examples](#examples)
+   * [Hello world](#hello-world)
+   * [Transitions](#transitions)
+   * [Guards](#guards)
+      * [Combined](#combined)
+   * [Actions](#actions)
+      * [Multiaction](#multiaction)
+   * [State entry/exit actions](#state-entryexit-actions)
+   * [Guards and actions together](#guards-and-actions-together)
+   * [Handling unexpected events](#handling-unexpected-events)
+   * [Generic source pseudostate](#generic-source-pseudostate)
+   * [Dependencies](#dependencies)
+   * [Composite state machines](#composite-state-machines)
+   * [Observer](#observer)
+   * [Miscelaneous](#miscelaneous)
+      * [Reset the state machine](#reset-the-state-machine)
+
 ## Main goals
 
 * Header only.
