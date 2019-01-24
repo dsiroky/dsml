@@ -230,7 +230,18 @@ const auto action = [](){ do_something(); };
 ```
 
 Calling `process_event` function with any event other than `"evt1"_e` or
-`"evt2"_e` will transition to state `D`.
+`"evt2"_e` will transition to state `D`. Unexpected event has lower priority.
+
+### Generic source pseudostate
+
+If you have an event that leads to the same state from every other state then
+use `any_state`. You can combine it with `unexpected_event`:
+
+```cpp
+  "A"_s + "evt1"_e = "B"_s
+, dsml::any_state + "evt1"_e = "C"_s // lower priority
+, dsml::any_state + dsml::unexpected_event = "D"_s // lowest priority
+```
 
 ### Dependencies
 
@@ -402,7 +413,6 @@ assert(sm.is(dsml::initial_state));
 - queued/deferred events
 - automatic dependencies like boost::sml
 - actions/guards can accept processed event
-- `dsml::any_state + event`
 - policy for state storage automatic size deduction (now it is 4 bytes)
 - move private stuff to detail
 - compilation time optimizations
