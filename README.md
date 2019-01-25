@@ -3,14 +3,21 @@
 
 # dsml - C++ state machine library
 
-Heavily inspired by ["boost"-sml](https://github.com/boost-experimental/sml).
 Motivation to create another SM library was to have well implemented anonymous
 transitions and more straightforward approach to composite state machines.
 *dsml* aims to be almost UML compliant.
 
+## Main goals
+
+* Header only.
+* Lightning fast.
+* Minimal resulting binary footprint and speed - don't pay for what you don't need.
+* Clear semantics.
+* State machine can be embedded into a custom class.
+* Well tested.
+
 ## Table of contents
 
-* [Main goals](#main-goals)
 * [Requirements](#requirements)
 * [Examples](#examples)
    * [Hello world](#hello-world)
@@ -28,14 +35,6 @@ transitions and more straightforward approach to composite state machines.
    * [Observer](#observer)
    * [Miscelaneous](#miscelaneous)
       * [Reset the state machine](#reset-the-state-machine)
-
-## Main goals
-
-* Header only.
-* Minimal resulting binary footprint - don't pay for what you don't need.
-* Speed.
-* Clear semantics.
-* Well tested.
 
 ## Requirements
 
@@ -432,9 +431,10 @@ assert(sm.is(dsml::initial_state));
 
 ## TODO
 - queued/deferred events
-- automatic dependencies like boost::sml
 - actions/guards can accept processed event
-- policy for state storage automatic size deduction (now it is 4 bytes)
+- install, conan package, buildroot package
+- complex example
+- policy for state storage automatic size deduction
 - move private stuff to detail
 - compilation time optimizations
 - comments
