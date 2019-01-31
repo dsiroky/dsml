@@ -12,6 +12,7 @@ transitions and more straightforward approach to composite state machines.
 * Header only.
 * Lightning fast.
 * Minimal resulting binary footprint and speed - don't pay for what you don't need.
+* Safe - many compile-time checks.
 * Clear semantics.
 * State machine can be embedded into a custom class.
 * Well tested.
@@ -428,13 +429,3 @@ sm.process_event("evt"_e);
 sm.reset();
 assert(sm.is(dsml::initial_state));
 ```
-
-## TODO
-- queued/deferred events
-- actions/guards can accept processed event
-- install, conan package, buildroot package
-- complex example
-- policy for state storage automatic size deduction
-- move private stuff to detail
-- compilation time optimizations
-- comments
