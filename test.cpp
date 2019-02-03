@@ -23,6 +23,7 @@ void no_action_func() {}
 void callable1() {}
 void callable1noexcept() noexcept {}
 auto callable2(double) { return std::make_tuple(4, 5.9f); }
+auto callable3(int a, int b) { return a + b; }
 const auto const_callable2_ptr = &callable2;
 
 /// just a warning silencer
@@ -484,7 +485,27 @@ TEST(HasTableOperator, True)
 
 //==========================================================================
 
-TEST(Callee, NormalMethod)
+TEST(Callee, FreeFunction)
+{
+  const auto c = dsml::callee(callable3);
+
+  EXPECT_EQ(5, c(2, 3));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Callee, Lambda)
+{
+  const auto l = [](int a, int b){ return a * b; };
+
+  const auto c = dsml::callee(l);
+
+  EXPECT_EQ(6, c(2, 3));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Callee, MemberFunction)
 {
   struct S
   {
@@ -506,7 +527,7 @@ TEST(Callee, NormalMethod)
 
 //--------------------------------------------------------------------------
 
-TEST(Callee, ConstVolatileMethods)
+TEST(Callee, ConstVolatileMemberFunctions)
 {
   struct S
   {
