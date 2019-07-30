@@ -36,6 +36,7 @@ transitions and more straightforward approach to composite state machines.
    * [Observer](#observer)
    * [Miscelaneous](#miscelaneous)
       * [Reset the state machine](#reset-the-state-machine)
+      * [Exceptions](#exceptions)
 
 ## Requirements
 
@@ -429,3 +430,10 @@ sm.process_event("evt"_e);
 sm.reset();
 assert(sm.is(dsml::initial_state));
 ```
+
+#### Exceptions
+
+If an action or a guard throws an exception then the library calls
+`std::abort()`. State machines don't have exceptions. You have to model it e.g.
+with an extra state performing the action and outgoing empty transitions with
+guards checking if the action failed or not.

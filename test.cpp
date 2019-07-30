@@ -1906,6 +1906,74 @@ TEST(SmMultilevelCompositeWithUDL, Mixture)
 }
 #endif
 
+//--------------------------------------------------------------------------
+
+TEST(Sm, ExceptionInTransitionAction_Aborts)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1
+                    / [](){ throw std::exception{}; }
+                    = A
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+
+  ASSERT_DEATH(sm.process_event(e1), "");
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, ExceptionInOnEntry_Aborts)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1 = A
+          , A + dsml::on_entry
+                    / [](){ throw std::exception{}; }
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+
+  ASSERT_DEATH(sm.process_event(e1), "");
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, ExceptionInOnExit_Aborts)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1 = A
+          , dsml::initial_state + dsml::on_exit
+                    / [](){ throw std::exception{}; }
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+
+  ASSERT_DEATH(sm.process_event(e1), "");
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, ExceptionInGuard_Aborts)
+{
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + e1
+              [ ([]() -> bool { throw std::exception{}; }) ]
+              = A
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+
+  ASSERT_DEATH(sm.process_event(e1), "");
+}
+
 //==========================================================================
 
 struct MyObserver : dsml::Observer

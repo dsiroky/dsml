@@ -591,13 +591,13 @@ struct UnifyCallee
 //--------------------------------------------------------------------------
 
 template<typename _F, typename _Deps, size_t... _Is>
-auto call_impl(_F func, _Deps& deps, std::index_sequence<_Is...>)
+auto call_impl(_F func, _Deps& deps, std::index_sequence<_Is...>) noexcept
 {
   return func(std::get<_Is>(deps)...);
 }
 
 template<typename _F, typename _Deps>
-auto call(_F func, _Deps& deps)
+auto call(_F func, _Deps& deps) noexcept
 {
   using nonpolicy_indices_t = TupleIndexFilter_t<IsNotPolicy, _Deps>;
   auto filtered_deps = tuple_ref_selection(deps, nonpolicy_indices_t{});
@@ -998,7 +998,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
   static constexpr bool process(const _AllRows& all_rows,
                                 const _FilteredRows& filtered_rows,
                                 _StateNum& state,
-                                _Deps& deps)
+                                _Deps& deps) noexcept
   {
     using row_t = std::remove_const_t<std::remove_reference_t<
                           std::tuple_element_t<_I0, _FilteredRows>
