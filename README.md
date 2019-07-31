@@ -435,5 +435,15 @@ assert(sm.is(dsml::initial_state));
 
 If an action or a guard throws an exception then the library calls
 `std::abort()`. State machines don't have exceptions. You have to model it e.g.
-with an extra state performing the action and outgoing empty transitions with
+with an extra state performing the action and outgoing anonymous transitions with
 guards checking if the action failed or not.
+
+![diagram](diagrams/exception.png)
+
+```cpp
+return dsml::make_transition_table(
+      dsml::initial_state + "evt"_e = "decision"_s
+    , "decision"_s [ is_ok ] = "B"_s
+    , "decision"_s [ ! is_ok ] = "C"_s
+  );
+```
