@@ -335,6 +335,89 @@ TEST(Callable, Lambdas)
 
 //==========================================================================
 
+TEST(Call, NonemptyDeps_FunctionWithoutArgs)
+{
+  auto deps = std::make_tuple(3, "sdf");
+  int called{};
+  const auto f = [&called](){ ++called; };
+
+  dsml::detail::call(f, deps);
+
+  EXPECT_EQ(called, 1);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Call, NonemptyDeps_FunctionArgsMatchDepsInOrder)
+{
+  auto deps = std::make_tuple(3, std::string{"abc"});
+  auto f = [](int& given_i, std::string& given_s) {
+    ++given_i;
+    given_s += 'x';
+  };
+
+  dsml::detail::call(f, deps);
+
+  EXPECT_EQ(std::get<0>(deps), 4);
+  EXPECT_EQ(std::get<1>(deps), "abcx");
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Call, NonemptyDeps_FunctionArgsMatchDepsOutOfOrder)
+{
+  auto deps = std::make_tuple(3, false, std::string{"abc"}, 9.0);
+  auto f = [](double& given_d, int& given_i, std::string& given_s) {
+    given_d *= 2.0;
+    ++given_i;
+    given_s += 'x';
+  };
+
+  dsml::detail::call(f, deps);
+
+  EXPECT_EQ(std::get<0>(deps), 4);
+  EXPECT_EQ(std::get<2>(deps), "abcx");
+  EXPECT_NEAR(std::get<3>(deps), 18.0, 0.1);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Call, NonemptyDeps_ConstRefArguments)
+{
+  auto deps = std::make_tuple(3, false, std::string{"abc"}, 9.0);
+  const int* ptr_i{};
+  auto f = [&](const int& given_i) {
+    ptr_i = std::addressof(given_i);
+  };
+
+  dsml::detail::call(f, deps);
+
+  EXPECT_EQ(std::addressof(std::get<0>(deps)), ptr_i);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Call, NonemptyDeps_FunctionArgsPassByValue)
+{
+  auto deps = std::make_tuple(3, false, std::string{"abc"}, 9.0);
+  double out_d{};
+  int out_i{};
+  std::string out_s{};
+  auto f = [&](double given_d, int given_i, std::string given_s) {
+    out_d = given_d;
+    out_i = given_i;
+    out_s = given_s;
+  };
+
+  dsml::detail::call(f, deps);
+
+  EXPECT_EQ(out_i, 3);
+  EXPECT_EQ(out_s, "abc");
+  EXPECT_NEAR(out_d, 9.0, 0.1);
+}
+
+//==========================================================================
+
 TEST(GetTypeName, ReturnsString)
 {
   EXPECT_STREQ("int", dsml::get_type_name<int>());

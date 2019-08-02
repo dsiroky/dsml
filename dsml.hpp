@@ -334,7 +334,7 @@ using TupleIndexFilter_t = typename TupleIndexFilter<_Filter, _Tuple,
 
 /// @return tuple of references to a subset of the original tuple.
 template<typename _Tuple, size_t... _Is>
-constexpr auto tuple_ref_selection(const _Tuple& tuple, std::index_sequence<_Is...>)
+constexpr auto tuple_ref_selection(_Tuple&& tuple, std::index_sequence<_Is...>)
 {
   return std::make_tuple(std::ref(std::get<_Is>(tuple))...);
 }
@@ -358,6 +358,12 @@ struct IsObserver
 {
   static constexpr bool value{std::is_base_of<Observer, std::decay_t<_T>>::value};
 };
+
+//--------------------------------------------------------------------------
+
+/// Remove const/volatile/reference, keep pointers.
+template<typename _T>
+using RemoveCvRef_t = std::remove_cv_t<std::remove_reference_t<_T>>;
 
 //--------------------------------------------------------------------------
 
@@ -546,30 +552,30 @@ struct IsAction : IsActionImpl<_F, IsCallable<_F>::value> {};
 template<typename _Ret, typename _Klass, typename... _Args>
 auto method_callee(_Ret(_Klass::*ptr)(_Args...))
 {
-  return [ptr](_Klass& k)
-          noexcept(noexcept(((k).*(ptr))()))
-          { return ((k).*(ptr))(); };
+  return [ptr](_Klass& k, _Args&&... args)
+          noexcept(noexcept(((k).*(ptr))(std::forward<_Args>(args)...)))
+          { return ((k).*(ptr))(std::forward<_Args>(args)...); };
 }
 template<typename _Ret, typename _Klass, typename... _Args>
 auto method_callee(_Ret(_Klass::*ptr)(_Args...) const)
 {
-  return [ptr](const _Klass& k)
-          noexcept(noexcept(((k).*(ptr))()))
-          { return ((k).*(ptr))(); };
+  return [ptr](const _Klass& k, _Args&&... args)
+          noexcept(noexcept(((k).*(ptr))(std::forward<_Args>(args)...)))
+          { return ((k).*(ptr))(std::forward<_Args>(args)...); };
 }
 template<typename _Ret, typename _Klass, typename... _Args>
 auto method_callee(_Ret(_Klass::*ptr)(_Args...) volatile)
 {
-  return [ptr](_Klass& k)
-          noexcept(noexcept(((k).*(ptr))()))
-          { return ((k).*(ptr))(); };
+  return [ptr](_Klass& k, _Args&&... args)
+          noexcept(noexcept(((k).*(ptr))(std::forward<_Args>(args)...)))
+          { return ((k).*(ptr))(std::forward<_Args>(args)...); };
 }
 template<typename _Ret, typename _Klass, typename... _Args>
 auto method_callee(_Ret(_Klass::*ptr)(_Args...) const volatile)
 {
-  return [ptr](const _Klass& k)
-          noexcept(noexcept(((k).*(ptr))()))
-          { return ((k).*(ptr))(); };
+  return [ptr](const _Klass& k, _Args&&... args)
+          noexcept(noexcept(((k).*(ptr))(std::forward<_Args>(args)...)))
+          { return ((k).*(ptr))(std::forward<_Args>(args)...); };
 }
 
 //--------------------------------------------------------------------------
@@ -590,20 +596,20 @@ struct UnifyCallee
 
 //--------------------------------------------------------------------------
 
-template<typename _F, typename _Deps, size_t... _Is>
+template<typename _F, typename _Deps, typename _Args, size_t... _Is>
 auto call_impl(_F func, _Deps& deps, std::index_sequence<_Is...>) noexcept
 {
-  return func(std::get<_Is>(deps)...);
+  using deps_t = Apply_t<RemoveCvRef_t, _Deps>;
+  return func(std::get<TypeIndex<typename std::tuple_element<_Is, _Args>::type,
+                                 deps_t>::value>(deps)...);
 }
 
 template<typename _F, typename _Deps>
 auto call(_F func, _Deps& deps) noexcept
 {
-  using nonpolicy_indices_t = TupleIndexFilter_t<IsNotPolicy, _Deps>;
-  auto filtered_deps = tuple_ref_selection(deps, nonpolicy_indices_t{});
-  using args_t = typename Callable<_F>::args_t;
+  using args_t = Apply_t<RemoveCvRef_t, typename Callable<_F>::args_t>;
   using args_indices_t = std::make_index_sequence<std::tuple_size<args_t>::value>;
-  return call_impl(func, filtered_deps, args_indices_t{});
+  return call_impl<_F, _Deps, args_t>(func, deps, args_indices_t{});
 }
 
 //--------------------------------------------------------------------------
@@ -1000,9 +1006,7 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
                                 _StateNum& state,
                                 _Deps& deps) noexcept
   {
-    using row_t = std::remove_const_t<std::remove_reference_t<
-                          std::tuple_element_t<_I0, _FilteredRows>
-                        >>;
+    using row_t = RemoveCvRef_t<std::tuple_element_t<_I0, _FilteredRows>>;
     const auto& row = std::get<_I0>(filtered_rows);
     bool processed{false};
     constexpr auto source_state

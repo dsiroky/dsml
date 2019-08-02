@@ -268,7 +268,7 @@ use `any_state`. You can combine it with `unexpected_event`:
 ### Dependencies
 
 Useful to connect the SM with non-global logic. You can use lambdas (or free
-functions) that will accept the dependency as an argument or you can pass
+functions) that will accept dependencies as arguments or you can pass
 member function pointers.
 
 Use `dsml::callee()` to wrap member function pointers.
@@ -283,14 +283,15 @@ struct Logic
     return x < 99;
   }
 
-  void daction()
+  void daction(int& num)
   {
     x = 33;
+    num += 3;
   }
 };
 
 const auto guard = [](const Logic& logic){ return logic.x <= 5; };
-const auto action = [](Logic& logic){ logic.x += 2; };
+const auto action = [](Logic& logic, int& num){ logic.x += 2; num += 10; };
 
 struct MyMachine
 {
@@ -315,8 +316,11 @@ void func()
   using namespace dsml::literals;
 
   Logic logic{};
-  dsml::Sm<MyMachine, Logic> sm{logic};
+  int num{};
+  // Internally it will create Logic& and int& references.
+  dsml::Sm<MyMachine, Logic, int> sm{logic, num};
   sm.process_event("evt1"_e);
+  std::cout << num << '\n';
 }
 ```
 
