@@ -616,14 +616,14 @@ auto call(_F func, _Deps& deps) noexcept
 
 template<typename...>
 struct OpNotImpl;
-template<typename _F, typename... Args>
-struct OpNotImpl<_F, std::tuple<Args...>>
+template<typename _F, typename... _Args>
+struct OpNotImpl<_F, std::tuple<_Args...>>
 {
   explicit OpNotImpl(_F f) : m_f{std::move(f)} {}
 
-  bool operator()(Args&&... args) const
+  bool operator()(_Args... args) const
   {
-    return ! m_f(std::forward<Args>(args)...);
+    return ! m_f(std::forward<_Args>(args)...);
   }
 
 private:
@@ -659,16 +659,17 @@ struct ExprOr
 
 template<typename...>
 struct OpBinaryImpl;
-template<typename _Expr, typename _F1, typename _F2, typename... Args1, typename... Args2>
-struct OpBinaryImpl<_Expr, _F1, std::tuple<Args1...>, _F2, std::tuple<Args2...>>
+template<typename _Expr, typename _F1, typename _F2,
+         typename... _Args1, typename... _Args2>
+struct OpBinaryImpl<_Expr, _F1, std::tuple<_Args1...>, _F2, std::tuple<_Args2...>>
 {
   explicit OpBinaryImpl(_F1 f1, _F2 f2)
     : m_f1{std::move(f1)}, m_f2{std::move(f2)}
   {}
 
-  constexpr bool operator()(Args1&&... args) const
+  constexpr bool operator()(_Args1... args1, _Args2... args2) const
   {
-    auto tup = std::forward_as_tuple(args...);
+    auto tup = std::forward_as_tuple(args1..., args2...);
     return _Expr::eval(call(m_f1, tup), call(m_f2, tup));
   }
 
@@ -709,16 +710,17 @@ public:
 
 template<typename...>
 struct ActionBatchImpl;
-template<typename _Expr, typename _F1, typename _F2, typename... Args1, typename... Args2>
-struct ActionBatchImpl<_Expr, _F1, std::tuple<Args1...>, _F2, std::tuple<Args2...>>
+template<typename _Expr, typename _F1, typename _F2,
+         typename... _Args1, typename... _Args2>
+struct ActionBatchImpl<_Expr, _F1, std::tuple<_Args1...>, _F2, std::tuple<_Args2...>>
 {
   explicit ActionBatchImpl(_F1 f1, _F2 f2)
     : m_f1{std::move(f1)}, m_f2{std::move(f2)}
   {}
 
-  constexpr void operator()(Args1&&... args) const
+  constexpr void operator()(_Args1... args1, _Args2... args2) const
   {
-    auto tup = std::forward_as_tuple(args...);
+    auto tup = std::forward_as_tuple(args1..., args2...);
     call(m_f1, tup);
     call(m_f2, tup);
   }

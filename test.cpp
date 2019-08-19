@@ -416,6 +416,82 @@ TEST(Call, NonemptyDeps_FunctionArgsPassByValue)
   EXPECT_NEAR(out_d, 9.0, 0.1);
 }
 
+//--------------------------------------------------------------------------
+
+TEST(Call, NonemptyDeps_OperatorsActionBatch)
+{
+  auto deps = std::make_tuple(3, false, std::string{"abc"}, 9.0);
+  double out_d{};
+  int out_i{};
+  std::string out_s{};
+  auto f1 = [&](double given_d, std::string& given_s) {
+    out_d = given_d;
+    out_s = given_s;
+    given_s = "changed";
+  };
+  auto f2 = [&](int given_i) {
+    out_i = given_i;
+  };
+
+  using namespace dsml::operators;
+  auto batch = (f1, f2);
+  dsml::detail::call(batch, deps);
+
+  EXPECT_EQ(out_i, 3);
+  EXPECT_EQ(out_s, "abc");
+  EXPECT_EQ(std::get<2>(deps), "changed");
+  EXPECT_NEAR(out_d, 9.0, 0.1);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Call, NonemptyDeps_OperatorsAnd)
+{
+  auto deps = std::make_tuple(3, false, std::string{"abc"}, 9.0);
+  double out_d{};
+  int out_i{};
+  std::string out_s{};
+  auto f1 = [&](double given_d, std::string given_s) {
+    out_d = given_d;
+    out_s = given_s;
+    return true;
+  };
+  auto f2 = [&](int given_i) {
+    out_i = given_i;
+    return true;
+  };
+
+  using namespace dsml::operators;
+  auto func = (f1 && f2);
+  dsml::detail::call(func, deps);
+
+  EXPECT_EQ(out_i, 3);
+  EXPECT_EQ(out_s, "abc");
+  EXPECT_NEAR(out_d, 9.0, 0.1);
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Call, NonemptyDeps_OperatorNot)
+{
+  auto deps = std::make_tuple(3, false, std::string{"abc"});
+  int out_i{};
+  std::string out_s{};
+  auto f1 = [&](int given_i, std::string given_s) {
+    out_i = given_i;
+    out_s = given_s;
+    return true;
+  };
+
+  using namespace dsml::operators;
+  auto func = !f1;
+  const auto ret = dsml::detail::call(func, deps);
+
+  EXPECT_EQ(out_i, 3);
+  EXPECT_EQ(out_s, "abc");
+  EXPECT_FALSE(ret);
+}
+
 //==========================================================================
 
 TEST(GetTypeName, ReturnsString)
