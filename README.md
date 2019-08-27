@@ -226,6 +226,18 @@ const auto action = [](){ do_something(); };
 "A"_s + dsml::on_exit / action
 ```
 
+Processing an event leading to the same state will invoke exit/entry actions
+too. E.g. :
+
+```cpp
+"A"_s + dsml::on_entry / action_entry,
+"A"_s + dsml::on_exit / action_exit,
+"A"_s + "evt1"_e = "A"_s
+```
+
+Calling `process_event("evt1"_e)` in the state *A* will call `action_exit()`
+and `action_entry()`.
+
 ### Guards and actions together
 
 ```cpp
