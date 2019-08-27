@@ -1465,7 +1465,7 @@ public:
   }
 
   template<typename _ET>
-  void process_event(const Event<_ET>& event)
+  void process_event(const Event<_ET>& event) noexcept
   {
     process_single_event(event);
     process_anonymous_events();
