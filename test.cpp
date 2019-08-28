@@ -1128,6 +1128,69 @@ TEST(Sm, TransitionGuard)
 
 //--------------------------------------------------------------------------
 
+TEST(Sm, TransitionGuardWithEventAsArgument)
+{
+  struct Data
+  {
+    enum {F1, F2, F3, F4} flag{F2};
+  };
+  static constexpr auto evt = dsml::Event<Data>{};
+
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + evt
+                    [ ([](const Data d){ return d.flag == Data::F1; }) ]
+                    = A
+          ,dsml::initial_state + evt
+                    [ ([](const Data d){ return d.flag == Data::F2; }) ]
+                    = B
+          ,dsml::initial_state + evt
+                    [ ([](const Data d){ return d.flag == Data::F3; }) ]
+                    = C
+          ,dsml::initial_state + evt
+                    [ ([](const Data d){ return d.flag == Data::F4; }) ]
+                    = D
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+
+  sm.process_event(evt(Data{Data::F3}));
+  EXPECT_TRUE(sm.is(C));
+}
+
+//--------------------------------------------------------------------------
+
+TEST(Sm, TransitionGuardWithEventAsArgument_LvalueInt)
+{
+  static constexpr auto evt = dsml::Event<int>{};
+
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + evt
+                    [ ([](int i){ return i == 1; }) ]
+                    = A
+          ,dsml::initial_state + evt
+                    [ ([](int i){ return i == 2; }) ]
+                    = B
+          ,dsml::initial_state + evt
+                    [ ([](int i){ return i == 3; }) ]
+                    = C
+          ,dsml::initial_state + evt
+                    [ ([](int i){ return i == 4; }) ]
+                    = D
+
+  ); } };
+
+  dsml::Sm<MyMachine> sm{};
+
+  int x = 2;
+  sm.process_event(evt(x));
+  EXPECT_TRUE(sm.is(B));
+}
+
+//--------------------------------------------------------------------------
+
 TEST(Sm, TransitionGuardWithNotOperator)
 {
   bool flag{true};

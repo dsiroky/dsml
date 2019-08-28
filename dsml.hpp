@@ -160,6 +160,23 @@ struct MinimalUnsigned
 
 //--------------------------------------------------------------------------
 
+template<typename T>
+struct IsCompleteHelper
+{
+  template<typename U>
+  static auto test(U*) -> std::integral_constant<bool, sizeof(U) == sizeof(U)>;
+  static auto test(...) -> std::false_type;
+  using type = decltype(test((T*)0));
+};
+
+/// true if the type is complete
+template<typename T>
+struct IsComplete : IsCompleteHelper<T>::type
+{
+};
+
+//--------------------------------------------------------------------------
+
 template<size_t, typename>
 struct PrependIndex;
 template<size_t _I0, size_t... _Is>
@@ -913,12 +930,55 @@ struct EventBundle
   const _ActionF m_action{};
 };
 
+//--------------------------------------------------------------------------
+
+template<typename _Event, typename _T>
+struct EventWithCompleteType
+{
+  explicit constexpr EventWithCompleteType() = default;
+  explicit constexpr EventWithCompleteType(_T value) noexcept
+    : m_value{std::move(value)}
+  {
+  }
+
+  constexpr _Event operator()(_T value) const
+  {
+    return _Event{std::move(value)};
+  }
+
+  _T& value() noexcept { return m_value; }
+  const _T& value() const noexcept { return m_value; }
+
+  static constexpr bool has_complete_type{true};
+
+private:
+  _T m_value{};
+};
+
+//--------------------------------------------------------------------------
+
+template<typename _Event, typename>
+struct EventWithoutCompleteType
+{
+  explicit constexpr EventWithoutCompleteType() = default;
+
+  static constexpr bool has_complete_type{false};
+};
+
+//--------------------------------------------------------------------------
+
 template<typename _T>
-struct Event
+struct Event : public std::conditional_t<detail::IsComplete<_T>::value,
+                                         EventWithCompleteType<Event<_T>, _T>,
+                                         EventWithoutCompleteType<Event<_T>, _T>>
 {
   using base_t = _T;
 
-  explicit constexpr Event() = default;
+  using super_t = std::conditional_t<detail::IsComplete<_T>::value,
+                                         EventWithCompleteType<Event<_T>, _T>,
+                                         EventWithoutCompleteType<Event<_T>, _T>>;
+
+  using super_t::super_t;
 
   template<typename _ActionF,
           _DSML_REQUIRES(detail::IsAction<_ActionF>::value)>
@@ -1067,6 +1127,34 @@ struct ProcessSingleEventImpl<_AllStates, _AllRows, _Deps, _StateNum,
               ::process(all_rows, filtered_rows, state, deps);
   }
 };
+
+//==========================================================================
+
+struct AddEventValueWithoutCompleteType
+{
+  template<typename _Event, typename _Deps>
+  auto operator()(const _Event&, _Deps& deps)
+  {
+    return deps;
+  }
+};
+
+struct AddEventValueWithCompleteType
+{
+  template<typename _Event, typename _Deps>
+  auto operator()(const _Event& evt, _Deps& deps)
+  {
+    return std::tuple_cat(deps, std::make_tuple(evt.value()));
+  }
+};
+
+template<typename _Event, typename _Deps>
+auto add_event_value(const _Event& evt, _Deps& deps)
+{
+  return std::conditional_t<_Event::has_complete_type,
+                            AddEventValueWithCompleteType,
+                            AddEventValueWithoutCompleteType>{}(evt, deps);
+}
 
 //==========================================================================
 
@@ -1496,16 +1584,18 @@ private:
     auto filtered_rows = detail::rows_with_event(table.m_rows, evt);
     using frows_t = decltype(filtered_rows);
     detail::NotifyObserver<deps_t>::template event<deps_t, decltype(evt)>(m_deps);
+    auto extended_deps = detail::add_event_value(evt, m_deps);
     return detail::ProcessSingleEventImpl<
                             typename table_types::transition_table_t::states_t,
                             decltype(table.m_rows),
-                            deps_t,
+                            decltype(extended_deps),
                             state_number_t,
                             frows_t,
                             detail::StateComparator,
                             std::make_index_sequence<std::tuple_size<frows_t>::value>
                           >
-                    ::process(table.m_rows, filtered_rows, m_state_number, m_deps);
+                    ::process(table.m_rows, filtered_rows, m_state_number,
+                              extended_deps);
   }
 
   //--------------------------------
@@ -1519,16 +1609,18 @@ private:
                                     detail::rows_with_event(table.m_rows, evt),
                                     any_state);
     using frows_t = decltype(filtered_rows);
+    auto extended_deps = detail::add_event_value(evt, m_deps);
     return detail::ProcessSingleEventImpl<
                             typename table_types::transition_table_t::states_t,
                             decltype(table.m_rows),
-                            deps_t,
+                            decltype(extended_deps),
                             state_number_t,
                             frows_t,
                             detail::StateComparatorTautology,
                             std::make_index_sequence<std::tuple_size<frows_t>::value>
                           >
-                    ::process(table.m_rows, filtered_rows, m_state_number, m_deps);
+                    ::process(table.m_rows, filtered_rows, m_state_number,
+                              extended_deps);
   }
 
   //--------------------------------

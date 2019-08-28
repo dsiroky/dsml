@@ -19,24 +19,25 @@ transitions and more straightforward approach to composite state machines.
 
 ## Table of contents
 
-* [Requirements](#requirements)
-* [Examples](#examples)
-   * [Hello world](#hello-world)
-   * [Transitions](#transitions)
-   * [Guards](#guards)
-      * [Combined](#combined)
-   * [Actions](#actions)
-      * [Multiaction](#multiaction)
-   * [State entry/exit actions](#state-entryexit-actions)
-   * [Guards and actions together](#guards-and-actions-together)
-   * [Handling unexpected events](#handling-unexpected-events)
-   * [Generic source pseudostate](#generic-source-pseudostate)
-   * [Dependencies](#dependencies)
-   * [Composite state machines](#composite-state-machines)
-   * [Observer](#observer)
-   * [Miscelaneous](#miscelaneous)
-      * [Reset the state machine](#reset-the-state-machine)
-      * [Exceptions](#exceptions)
+- [Requirements](#requirements)
+- [Examples](#examples)
+  * [Hello world](#hello-world)
+  * [Transitions](#transitions)
+  * [Guards](#guards)
+    + [Combined](#combined)
+  * [Actions](#actions)
+    + [Multiaction](#multiaction)
+  * [State entry/exit actions](#state-entry-exit-actions)
+  * [Guards and actions together](#guards-and-actions-together)
+  * [Handling unexpected events](#handling-unexpected-events)
+  * [Generic source pseudostate](#generic-source-pseudostate)
+  * [Dependencies](#dependencies)
+    + [Passing data via events](#passing-data-via-events)
+  * [Composite state machines](#composite-state-machines)
+  * [Observer](#observer)
+  * [Miscelaneous](#miscelaneous)
+    + [Reset the state machine](#reset-the-state-machine)
+    + [Exceptions](#exceptions)
 
 ## Requirements
 
@@ -333,6 +334,41 @@ void func()
   dsml::Sm<MyMachine, Logic, int> sm{logic, num};
   sm.process_event("evt1"_e);
   std::cout << num << '\n';
+}
+```
+
+#### Passing data via events
+
+If your event base type is a complete type then you can also pass a value of
+that type to the state machine. E.g.:
+
+```cpp
+// Base type is "int".
+static constexpr auto evt = dsml::Event<int>{};
+
+// Guard will accept value of "int".
+const auto guard = [](int x){ return x <= 5; };
+
+struct MyMachine
+{
+  auto operator()() const noexcept
+  {
+    using namespace dsml::literals;
+    using namespace dsml::operators;
+
+    return dsml::make_transition_table(
+          dsml::initial_state + evt [ guard ] = "A"_s
+        , dsml::initial_state + evt [ ! guard ] = "B"_s
+      );
+  }
+};
+
+void func()
+{
+  dsml::Sm<MyMachine> sm{};
+  // Value 3 will be passed to the guard/action.
+  // The event has an call operator which will accept that value.
+  sm.process_event(evt(3));
 }
 ```
 
