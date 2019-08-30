@@ -1,0 +1,12 @@
+digraph {
+
+include(common.style)
+
+initial [ shape=point height=0.4 ];
+doing [label=" <f0>doing|<f1>entry / action"];
+
+initial -> doing [ label="evt" ];
+doing -> B [ label="[ok?]" ]
+doing -> C [ label="[failed?]" ]
+
+}

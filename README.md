@@ -494,8 +494,21 @@ guards checking if the action failed or not.
 
 ```cpp
 return dsml::make_transition_table(
-      dsml::initial_state + "evt"_e = "decision"_s
+      dsml::initial_state + "evt"_e / action = "decision"_s
     , "decision"_s [ is_ok ] = "B"_s
     , "decision"_s [ ! is_ok ] = "C"_s
+  );
+```
+
+or
+
+![diagram](diagrams/exception2.png)
+
+```cpp
+return dsml::make_transition_table(
+      dsml::initial_state + "evt"_e = "doing"_s
+    , "doing"_s + dsml::on_entry / action
+    , "doing"_s [ is_ok ] = "B"_s
+    , "doing"_s [ ! is_ok ] = "C"_s
   );
 ```
