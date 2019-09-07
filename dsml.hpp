@@ -137,12 +137,16 @@ struct TypeHolder { using type = _Type; };
 
 //--------------------------------------------------------------------------
 
-// missing in gcc 5 STL
+#if __cplusplus < 201700L
 template<typename...> struct disjunction : std::false_type { };
 template<typename _B1> struct disjunction<_B1> : _B1 { };
 template<typename _B1, typename... _Bn>
 struct disjunction<_B1, _Bn...>
     : std::conditional_t<bool(_B1::value), _B1, disjunction<_Bn...>>  { };
+#else
+template<typename... _T>
+using disjunction = std::disjunction<_T...>;
+#endif
 
 //--------------------------------------------------------------------------
 
