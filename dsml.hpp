@@ -263,7 +263,7 @@ struct UniqueTypes<std::tuple<_T0, _T...>>
 private:
   using rest_t = UniqueTypes_t<std::tuple<_T...>>;
 public:
-  using type = typename std::conditional_t<HasType<_T0, std::tuple<_T...>>::value,
+  using type = typename std::conditional_t<HasType<_T0, rest_t>::value,
                   rest_t,
                   PrependType_t<_T0, rest_t>
                 >;
