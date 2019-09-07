@@ -81,6 +81,25 @@ TEST(MinimalUnsigned, ProvidesType)
 
 //==========================================================================
 
+TEST(HasType, Misc)
+{
+  struct S {};
+
+  EXPECT_FALSE((dsml::detail::HasType<bool, std::tuple<>>::value));
+  EXPECT_FALSE((dsml::detail::HasType<int, std::tuple<>>::value));
+  EXPECT_FALSE((dsml::detail::HasType<int, std::tuple<bool>>::value));
+  EXPECT_FALSE((dsml::detail::HasType<int, std::tuple<bool, float>>::value));
+  EXPECT_FALSE((dsml::detail::HasType<int, std::tuple<bool, float, S>>::value));
+  EXPECT_FALSE((dsml::detail::HasType<S, std::tuple<bool, float>>::value));
+
+  EXPECT_TRUE((dsml::detail::HasType<bool, std::tuple<bool>>::value));
+  EXPECT_TRUE((dsml::detail::HasType<bool, std::tuple<int, bool>>::value));
+  EXPECT_TRUE((dsml::detail::HasType<bool, std::tuple<bool, int>>::value));
+  EXPECT_TRUE((dsml::detail::HasType<S, std::tuple<bool, S, int>>::value));
+}
+
+//==========================================================================
+
 TEST(ConcatTypes, Misc)
 {
   EXPECT_TRUE((std::is_same<
