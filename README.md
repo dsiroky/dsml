@@ -303,9 +303,6 @@ struct Logic
   }
 };
 
-const auto guard = [](const Logic& logic){ return logic.x <= 5; };
-const auto action = [](Logic& logic, int& num){ logic.x += 2; num += 10; };
-
 struct MyMachine
 {
   auto operator()() const noexcept
@@ -313,6 +310,9 @@ struct MyMachine
     using dsml::callee;
     using namespace dsml::literals;
     using namespace dsml::operators;
+
+    const auto guard = [](const Logic& logic){ return logic.x <= 5; };
+    const auto action = [](Logic& logic, int& num){ logic.x += 2; num += 10; };
 
     return dsml::make_transition_table(
           dsml::initial_state + "evt1"_e [ guard ] / action = "A"_s
@@ -346,15 +346,15 @@ that type to the state machine. E.g.:
 // Base type is "int".
 static constexpr auto evt = dsml::Event<int>{};
 
-// Guard will accept value of "int".
-const auto guard = [](int x){ return x <= 5; };
-
 struct MyMachine
 {
   auto operator()() const noexcept
   {
     using namespace dsml::literals;
     using namespace dsml::operators;
+
+    // Guard will accept value of "int".
+    const auto guard = [](int x){ return x <= 5; };
 
     return dsml::make_transition_table(
           dsml::initial_state + evt [ guard ] = "A"_s
