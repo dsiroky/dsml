@@ -137,12 +137,16 @@ struct TypeHolder { using type = _Type; };
 
 //--------------------------------------------------------------------------
 
-// missing in gcc 5 STL
+#if __cplusplus < 201700L
 template<typename...> struct disjunction : std::false_type { };
 template<typename _B1> struct disjunction<_B1> : _B1 { };
 template<typename _B1, typename... _Bn>
 struct disjunction<_B1, _Bn...>
     : std::conditional_t<bool(_B1::value), _B1, disjunction<_Bn...>>  { };
+#else
+template<typename... _T>
+using disjunction = std::disjunction<_T...>;
+#endif
 
 //--------------------------------------------------------------------------
 
@@ -248,10 +252,8 @@ struct ConcatTypesImpl<std::tuple<_T0s...>, std::tuple<_T1s...>, _Rest...>
 template<typename... _Tuples>
 using ConcatTypes_t = typename ConcatTypesImpl<_Tuples...>::type;
 
-template<typename... _T>
+template<typename _T>
 struct UniqueTypes;
-template<typename... _T>
-using UniqueTypes_t = typename UniqueTypes<_T...>::type;
 template<>
 struct UniqueTypes<std::tuple<>>
 {
@@ -261,13 +263,16 @@ template<typename _T0, typename... _T>
 struct UniqueTypes<std::tuple<_T0, _T...>>
 {
 private:
-  using rest_t = UniqueTypes_t<std::tuple<_T...>>;
+  using rest_t = typename UniqueTypes<std::tuple<_T...>>::type;
 public:
-  using type = typename std::conditional_t<HasType<_T0, std::tuple<_T...>>::value,
+  using type = typename std::conditional_t<HasType<_T0, rest_t>::value,
                   rest_t,
                   PrependType_t<_T0, rest_t>
                 >;
 };
+
+template<typename _T>
+using UniqueTypes_t = typename UniqueTypes<_T>::type;
 
 template <template <class...> class, class>
 struct Apply;
