@@ -252,10 +252,8 @@ struct ConcatTypesImpl<std::tuple<_T0s...>, std::tuple<_T1s...>, _Rest...>
 template<typename... _Tuples>
 using ConcatTypes_t = typename ConcatTypesImpl<_Tuples...>::type;
 
-template<typename... _T>
+template<typename _T>
 struct UniqueTypes;
-template<typename... _T>
-using UniqueTypes_t = typename UniqueTypes<_T...>::type;
 template<>
 struct UniqueTypes<std::tuple<>>
 {
@@ -265,13 +263,16 @@ template<typename _T0, typename... _T>
 struct UniqueTypes<std::tuple<_T0, _T...>>
 {
 private:
-  using rest_t = UniqueTypes_t<std::tuple<_T...>>;
+  using rest_t = typename UniqueTypes<std::tuple<_T...>>::type;
 public:
   using type = typename std::conditional_t<HasType<_T0, rest_t>::value,
                   rest_t,
                   PrependType_t<_T0, rest_t>
                 >;
 };
+
+template<typename _T>
+using UniqueTypes_t = typename UniqueTypes<_T>::type;
 
 template <template <class...> class, class>
 struct Apply;
