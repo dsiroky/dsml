@@ -173,7 +173,7 @@ const auto guard = [](){ return true; };
 You can combine guards into a logical expression:
 ```cpp
 // add this into your scope to enable guard logical expressions
-using dsml::operators;
+using namespace dsml::operators;
 ```
 ![diagram](diagrams/guard_combined.png)
 ```cpp
@@ -206,7 +206,7 @@ You can chain multiple actions together. First you have to "include" operators:
 
 ```cpp
 // add this into your scope to enable actions chaining
-using dsml::operators;
+using namespace dsml::operators;
 ```
 
 Then you can chain actions separated with commas. Parentheses must be around the
