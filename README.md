@@ -46,6 +46,8 @@ transitions and more straightforward approach to composite state machines.
 
 ## Examples
 
+[Complex example](example).
+
 ### Hello world
 
 ![diagram](diagrams/hello_world.png)

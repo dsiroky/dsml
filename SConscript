@@ -122,3 +122,6 @@ obj = env_warnings.Object(Glob("*.cpp"))
 
 env.Program("test", obj + ["googletest/googletest/src/gtest-all.cc"])
 
+Export("env")
+
+SConscript(dirs=["example"])
