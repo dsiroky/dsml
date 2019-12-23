@@ -1210,6 +1210,32 @@ TEST(Sm, TransitionGuardWithEventAsArgument_LvalueInt)
 
 //--------------------------------------------------------------------------
 
+TEST(Sm, TransitionGuardWithEventAsArgument_InMethod)
+{
+  static constexpr auto evt = dsml::Event<int>{};
+
+  struct Logic
+  {
+    void f(int _x) { x = _x; };
+
+    int x{};
+  };
+
+  struct MyMachine { auto operator()() const noexcept { return dsml::make_transition_table(
+
+          dsml::initial_state + evt / dsml::callee(&Logic::f) = A
+
+  ); } };
+
+  Logic l{};
+  dsml::Sm<MyMachine, Logic> sm{l};
+
+  sm.process_event(evt(3));
+  EXPECT_EQ(l.x, 3);
+}
+
+//--------------------------------------------------------------------------
+
 TEST(Sm, TransitionGuardWithNotOperator)
 {
   bool flag{true};

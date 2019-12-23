@@ -574,29 +574,25 @@ struct IsAction : IsActionImpl<_F, IsCallable<_F>::value> {};
 template<typename _Ret, typename _Klass, typename... _Args>
 auto method_callee(_Ret(_Klass::*ptr)(_Args...))
 {
-  return [ptr](_Klass& k, _Args&&... args)
-          noexcept(noexcept(((k).*(ptr))(std::forward<_Args>(args)...)))
+  return [ptr](_Klass& k, _Args... args) noexcept
           { return ((k).*(ptr))(std::forward<_Args>(args)...); };
 }
 template<typename _Ret, typename _Klass, typename... _Args>
 auto method_callee(_Ret(_Klass::*ptr)(_Args...) const)
 {
-  return [ptr](const _Klass& k, _Args&&... args)
-          noexcept(noexcept(((k).*(ptr))(std::forward<_Args>(args)...)))
+  return [ptr](const _Klass& k, _Args... args) noexcept
           { return ((k).*(ptr))(std::forward<_Args>(args)...); };
 }
 template<typename _Ret, typename _Klass, typename... _Args>
 auto method_callee(_Ret(_Klass::*ptr)(_Args...) volatile)
 {
-  return [ptr](_Klass& k, _Args&&... args)
-          noexcept(noexcept(((k).*(ptr))(std::forward<_Args>(args)...)))
+  return [ptr](_Klass& k, _Args... args) noexcept
           { return ((k).*(ptr))(std::forward<_Args>(args)...); };
 }
 template<typename _Ret, typename _Klass, typename... _Args>
 auto method_callee(_Ret(_Klass::*ptr)(_Args...) const volatile)
 {
-  return [ptr](const _Klass& k, _Args&&... args)
-          noexcept(noexcept(((k).*(ptr))(std::forward<_Args>(args)...)))
+  return [ptr](const _Klass& k, _Args... args) noexcept
           { return ((k).*(ptr))(std::forward<_Args>(args)...); };
 }
 
