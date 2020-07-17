@@ -164,20 +164,18 @@ struct MinimalUnsigned
 
 //--------------------------------------------------------------------------
 
-template<typename T>
+template<typename _T>
 struct IsCompleteHelper
 {
-  template<typename U>
-  static auto test(U*) -> std::integral_constant<bool, sizeof(U) == sizeof(U)>;
+  template<typename _U>
+  static auto test(_U*) -> std::integral_constant<bool, sizeof(_U) == sizeof(_U)>;
   static auto test(...) -> std::false_type;
-  using type = decltype(test((T*)0));
+  using type = decltype(test((_T*)0));
 };
 
 /// true if the type is complete
-template<typename T>
-struct IsComplete : IsCompleteHelper<T>::type
-{
-};
+template<typename _T>
+using IsComplete = typename IsCompleteHelper<_T>::type;
 
 //--------------------------------------------------------------------------
 
