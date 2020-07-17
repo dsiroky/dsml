@@ -605,7 +605,7 @@ struct UnifyCalleeImpl<_F, true>
 { static auto unify(_F f) { return method_callee(f); } };
 template<typename _F>
 struct UnifyCalleeImpl<_F, false>
-{ static auto unify(_F f) { return std::move(f); } };
+{ static auto unify(_F f) { return f; } };
 
 template<typename _F>
 struct UnifyCallee
