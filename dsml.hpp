@@ -8,6 +8,7 @@
 #ifndef DSML_HPP__O06IR34S
 #define DSML_HPP__O06IR34S
 
+#include <cstdint>
 #include <functional>
 #include <limits>
 #include <tuple>
@@ -773,18 +774,18 @@ struct any_t { static auto c_str() noexcept { return "any"; } };
 //--------------------------------------------------------------------------
 
 // just for a static check
-template<typename _B>
+template<typename B>
 static void must_not_be_final()
 {
-  static_assert(!std::is_same<_B, detail::final_t>::value,
+  static_assert(!std::is_same<B, detail::final_t>::value,
                 "can't add an event to a final state");
 }
 
 // just for a static check
-template<typename _B>
+template<typename B>
 static void must_not_be_any()
 {
-  static_assert(!std::is_same<_B, detail::any_t>::value,
+  static_assert(!std::is_same<B, detail::any_t>::value,
                 "can't transition to any_state");
 }
 
@@ -1685,6 +1686,9 @@ namespace literals {
 
 #ifndef _MSC_VER
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+
 template<typename _T, _T... Chrs>
 auto operator""_s() {
   return State<detail::CString<char, Chrs...>>{};
@@ -1694,6 +1698,8 @@ template<typename _T, _T... Chrs>
 auto operator""_e() {
   return Event<detail::CString<char, Chrs...>>{};
 }
+
+#pragma GCC diagnostic pop
 
 #endif
 
